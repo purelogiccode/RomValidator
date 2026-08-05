@@ -19,7 +19,7 @@ public static class LoggerService
 
     public static void LogError(string component, string message)
     {
-        Write(LogEventLevel.Error, component, message, exception: null);
+        Write(LogEventLevel.Error, component, message, null);
     }
 
     public static void LogException(string component, Exception exception, string? context = null)
@@ -30,18 +30,18 @@ public static class LoggerService
 
     public static void LogWarning(string component, string message)
     {
-        Write(LogEventLevel.Warning, component, message, exception: null);
+        Write(LogEventLevel.Warning, component, message, null);
     }
 
     public static void LogInfo(string component, string message)
     {
-        Write(LogEventLevel.Information, component, message, exception: null);
+        Write(LogEventLevel.Information, component, message, null);
     }
 
     [Conditional("DEBUG")]
     public static void LogDebug(string component, string message)
     {
-        Write(LogEventLevel.Debug, component, message, exception: null);
+        Write(LogEventLevel.Debug, component, message, null);
     }
 
     private static void Write(LogEventLevel level, string component, string message, Exception? exception)

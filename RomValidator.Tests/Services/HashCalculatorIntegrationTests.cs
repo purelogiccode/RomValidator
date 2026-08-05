@@ -29,7 +29,10 @@ public class HashCalculatorIntegrationTests
         }
         finally
         {
-            try { File.Delete(tempFile); }
+            try
+            {
+                File.Delete(tempFile);
+            }
             catch
             {
                 // ignored
@@ -56,7 +59,10 @@ public class HashCalculatorIntegrationTests
         }
         finally
         {
-            try { File.Delete(tempFile); }
+            try
+            {
+                File.Delete(tempFile);
+            }
             catch
             {
                 // ignored
@@ -89,7 +95,10 @@ public class HashCalculatorIntegrationTests
         }
         finally
         {
-            try { File.Delete(tempFile); }
+            try
+            {
+                File.Delete(tempFile);
+            }
             catch
             {
                 // ignored
@@ -128,7 +137,10 @@ public class HashCalculatorIntegrationTests
         }
         finally
         {
-            try { File.Delete(tempFile); }
+            try
+            {
+                File.Delete(tempFile);
+            }
             catch
             {
                 // ignored
@@ -154,7 +166,10 @@ public class HashCalculatorIntegrationTests
         }
         finally
         {
-            try { File.Delete(tempFile); }
+            try
+            {
+                File.Delete(tempFile);
+            }
             catch
             {
                 // ignored

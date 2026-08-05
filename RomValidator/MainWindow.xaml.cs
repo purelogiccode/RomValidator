@@ -35,7 +35,7 @@ public partial class MainWindow : IDisposable
 
         // Reuse the BugReportService from App to avoid duplicate HttpClient instances
         BugReportService = ((App)Application.Current).GetBugReportService()
-            ?? throw new InvalidOperationException("BugReportService must be initialized before MainWindow.");
+                           ?? throw new InvalidOperationException("BugReportService must be initialized before MainWindow.");
 
         VersionChecker = new GitHubVersionChecker("drpetersonfernandes", "RomValidator", BugReportService);
 

@@ -143,7 +143,7 @@ public static class TempDirectoryHelper
         List<string> snapshot;
         lock (RetryLock)
         {
-            snapshot = [..PendingBackgroundRetries];
+            snapshot = [.. PendingBackgroundRetries];
         }
 
         foreach (var path in snapshot)
@@ -152,7 +152,11 @@ public static class TempDirectoryHelper
             {
                 if (!Directory.Exists(path))
                 {
-                    lock (RetryLock) { PendingBackgroundRetries.Remove(path); }
+                    lock (RetryLock)
+                    {
+                        PendingBackgroundRetries.Remove(path);
+                    }
+
                     continue;
                 }
 
@@ -162,7 +166,11 @@ public static class TempDirectoryHelper
                 TryDeleteFilesIndividually(path);
                 Directory.Delete(path, true);
 
-                lock (RetryLock) { PendingBackgroundRetries.Remove(path); }
+                lock (RetryLock)
+                {
+                    PendingBackgroundRetries.Remove(path);
+                }
+
                 LoggerService.LogInfo("Cleanup", $"Background retry successfully deleted '{path}'.");
             }
             catch
@@ -189,7 +197,7 @@ public static class TempDirectoryHelper
         List<string> toClean;
         lock (TrackLock)
         {
-            toClean = [..TrackedDirectories];
+            toClean = [.. TrackedDirectories];
         }
 
         foreach (var dir in toClean)
