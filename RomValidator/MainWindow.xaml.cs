@@ -93,7 +93,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             // Log the exception but don't crash the application
-            System.Diagnostics.Debug.WriteLine($"Error updating status bar: {ex.Message}");
+            Debug.WriteLine($"Error updating status bar: {ex.Message}");
             _ = BugReportService.SendBugReportAsync("Error updating status bar", ex);
         }
     }
@@ -229,7 +229,7 @@ public partial class MainWindow : IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error during shutdown: {ex.Message}");
+            Debug.WriteLine($"Error during shutdown: {ex.Message}");
         }
 
         // Dispose pages while BugReportService is still alive for error reporting
@@ -239,7 +239,7 @@ public partial class MainWindow : IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"ValidatePage dispose error: {ex.Message}");
+            Debug.WriteLine($"ValidatePage dispose error: {ex.Message}");
             _ = BugReportService.SendBugReportAsync("Error disposing ValidatePage", ex);
         }
 
@@ -249,7 +249,7 @@ public partial class MainWindow : IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"GenerateDatPage dispose error: {ex.Message}");
+            Debug.WriteLine($"GenerateDatPage dispose error: {ex.Message}");
             _ = BugReportService.SendBugReportAsync("Error disposing GenerateDatPage", ex);
         }
 
@@ -259,7 +259,7 @@ public partial class MainWindow : IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"VersionChecker dispose error: {ex.Message}");
+            Debug.WriteLine($"VersionChecker dispose error: {ex.Message}");
             _ = BugReportService.SendBugReportAsync("Error disposing VersionChecker", ex);
         }
 

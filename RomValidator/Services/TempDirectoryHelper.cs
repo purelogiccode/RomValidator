@@ -95,9 +95,9 @@ public static class TempDirectoryHelper
     /// Fallback deletion after the retry loop is exhausted. Runs on a thread-pool thread
     /// so the blocking GC and recursive delete never freeze the UI thread.
     /// </summary>
-    private static async Task FallbackCleanupAsync(string path)
+    private static Task FallbackCleanupAsync(string path)
     {
-        await Task.Run(() =>
+        return Task.Run(() =>
         {
             GC.Collect();
             GC.WaitForPendingFinalizers();
@@ -120,7 +120,7 @@ public static class TempDirectoryHelper
                 LoggerService.LogWarning("Cleanup", $"Could not fully delete '{path}'. Scheduling background retries.");
                 ScheduleBackgroundRetry(path);
             }
-        }).ConfigureAwait(false);
+        });
     }
 
     private static void TryDeleteFilesIndividually(string path)
