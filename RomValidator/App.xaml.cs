@@ -178,7 +178,9 @@ public partial class App
     {
         try
         {
-            var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RomValidator.log");
+            // Logs go to the per-user AppData folder so they stay writable for
+            // installed apps and are easy to find next to the screenshots.
+            var logFilePath = Path.Combine(AppPaths.LogsDirectory, "RomValidator.log");
 
             var loggerConfig = new LoggerConfiguration()
                 .MinimumLevel.Debug()
@@ -208,6 +210,22 @@ public partial class App
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to initialize Serilog logging: {ex.Message}");
+
+            // Fall back to a debug-only logger so logging (and the global exception
+            // handlers) keep working even if the file/sink setup failed.
+            try
+            {
+                var fallbackLogger = new LoggerConfiguration()
+                    .MinimumLevel.Debug()
+                    .WriteTo.Debug()
+                    .CreateLogger();
+                Log.Logger = fallbackLogger;
+                LoggerService.Initialize(fallbackLogger);
+            }
+            catch
+            {
+                // Last resort: LoggerService stays on its silent no-op logger.
+            }
         }
     }
 
@@ -398,6 +416,17 @@ public partial class App
     {
         try
         {
+            // Flush and close Serilog FIRST, while BugReportService is still alive, so
+            // pending log entries and in-flight bug-report sends are not cut off.
+            Log.CloseAndFlush();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error closing Serilog logger: {ex.Message}");
+        }
+
+        try
+        {
             _bugReportService?.Dispose();
             _bugReportService = null;
         }
@@ -424,16 +453,6 @@ public partial class App
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error disposing global cancellation token source: {ex.Message}");
-        }
-
-        try
-        {
-            // Flush and close Serilog to ensure all buffered log entries are written
-            Log.CloseAndFlush();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Error closing Serilog logger: {ex.Message}");
         }
 
         base.OnExit(e);

@@ -21,7 +21,7 @@
                 <ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBox Name="FolderTextBox" Grid.Column="0" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" ToolTip="Selected folder path" />
-            <Button Grid.Column="1" Content="Select Folder" Style="{StaticResource ActionButtonStyle}" Margin="10,0,0,0" Click="SelectFolderButton_Click" ToolTip="Choose a folder to hash its files" />
+            <Button x:Name="SelectFolderButton" Grid.Column="1" Content="Select Folder" Style="{StaticResource ActionButtonStyle}" Margin="10,0,0,0" Click="SelectFolderButton_Click" ToolTip="Choose a folder to hash its files" />
         </Grid>
 
         <Grid Grid.Row="2" Margin="0,0,0,15">
@@ -73,7 +73,7 @@
         <UniformGrid Grid.Row="5" Columns="4" HorizontalAlignment="Left">
             <Button Name="StartButton" Content="Start Hashing" Style="{StaticResource StartButtonStyle}" Click="StartButton_ClickAsync" IsEnabled="False" ToolTip="Begin hashing files in the selected folder" />
             <Button Name="StopButton" Content="Stop" Style="{StaticResource CancelButtonStyle}" Click="StopButton_Click" IsEnabled="False" ToolTip="Cancel the hashing operation" />
-            <Button Content="Reset" Style="{StaticResource DownloadButtonStyle}" Click="ResetButton_Click" ToolTip="Clear all data and start over" />
+            <Button x:Name="ResetButton" Content="Reset" Style="{StaticResource DownloadButtonStyle}" Click="ResetButton_Click" ToolTip="Clear all data and start over" />
             <Button Name="ExportDatButton" Content="Export DAT" Style="{StaticResource PurpleActionButtonStyle}" Click="ExportDatButton_ClickAsync" IsEnabled="False" ToolTip="Export the results to a DAT file" />
         </UniformGrid>
     </Grid>

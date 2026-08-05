@@ -33,6 +33,7 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button x:Name="OpenAppDataButton" Content="App Data" Click="OpenAppData_Click" Style="{StaticResource MenuButtonGrayStyle}" ToolTip="Open the application data folder (logs and screenshots)" />
                     <Button Content="About" Click="About_Click" Style="{StaticResource MenuButtonPurpleStyle}" ToolTip="View application information" />
                     <Button Content="Exit" Click="Exit_Click" Style="{StaticResource MenuButtonGrayStyle}" ToolTip="Close the application" />
                 </StackPanel>

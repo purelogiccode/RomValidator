@@ -15,6 +15,12 @@ public static class TempDirectoryHelper
     private static readonly object RetryLock = new();
     private static Timer? _backgroundRetryTimer;
 
+    static TempDirectoryHelper()
+    {
+        // Best-effort flush of pending retries when the application exits.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => ShutdownCleanup();
+    }
+
     /// <summary>
     /// Creates a temporary directory with a unique name.
     /// </summary>
@@ -76,7 +82,7 @@ public static class TempDirectoryHelper
             {
                 if (attempt < maxRetries)
                 {
-                    await Task.Delay(delayMs);
+                    await Task.Delay(delayMs).ConfigureAwait(false);
                     delayMs = Math.Min(delayMs * 2, 10000);
                 }
             }
@@ -85,31 +91,36 @@ public static class TempDirectoryHelper
         await FallbackCleanupAsync(path);
     }
 
-    private static Task FallbackCleanupAsync(string path)
+    /// <summary>
+    /// Fallback deletion after the retry loop is exhausted. Runs on a thread-pool thread
+    /// so the blocking GC and recursive delete never freeze the UI thread.
+    /// </summary>
+    private static async Task FallbackCleanupAsync(string path)
     {
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
+        await Task.Run(() =>
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
 
-        try
-        {
-            TryDeleteFilesIndividually(path);
-        }
-        catch
-        {
-            // Continue even if individual deletes fail
-        }
+            try
+            {
+                TryDeleteFilesIndividually(path);
+            }
+            catch
+            {
+                // Continue even if individual deletes fail
+            }
 
-        try
-        {
-            Directory.Delete(path, true);
-        }
-        catch
-        {
-            LoggerService.LogWarning("Cleanup", $"Could not fully delete '{path}'. Scheduling background retries.");
-            ScheduleBackgroundRetry(path);
-        }
-
-        return Task.CompletedTask;
+            try
+            {
+                Directory.Delete(path, true);
+            }
+            catch
+            {
+                LoggerService.LogWarning("Cleanup", $"Could not fully delete '{path}'. Scheduling background retries.");
+                ScheduleBackgroundRetry(path);
+            }
+        }).ConfigureAwait(false);
     }
 
     private static void TryDeleteFilesIndividually(string path)
@@ -146,46 +157,89 @@ public static class TempDirectoryHelper
             snapshot = [.. PendingBackgroundRetries];
         }
 
-        foreach (var path in snapshot)
+        try
         {
-            try
+            foreach (var path in snapshot)
             {
-                if (!Directory.Exists(path))
+                try
                 {
+                    if (!Directory.Exists(path))
+                    {
+                        lock (RetryLock)
+                        {
+                            PendingBackgroundRetries.Remove(path);
+                        }
+
+                        continue;
+                    }
+
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+
+                    TryDeleteFilesIndividually(path);
+                    Directory.Delete(path, true);
+
                     lock (RetryLock)
                     {
                         PendingBackgroundRetries.Remove(path);
                     }
 
-                    continue;
+                    LoggerService.LogInfo("Cleanup", $"Background retry successfully deleted '{path}'.");
                 }
-
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-
-                TryDeleteFilesIndividually(path);
-                Directory.Delete(path, true);
-
-                lock (RetryLock)
+                catch
                 {
-                    PendingBackgroundRetries.Remove(path);
+                    // Will retry on next timer tick
                 }
-
-                LoggerService.LogInfo("Cleanup", $"Background retry successfully deleted '{path}'.");
-            }
-            catch
-            {
-                // Will retry on next timer tick
             }
         }
-
-        lock (RetryLock)
+        finally
         {
-            if (PendingBackgroundRetries.Count == 0)
+            lock (RetryLock)
             {
+                if (PendingBackgroundRetries.Count == 0)
+                {
+                    _backgroundRetryTimer?.Dispose();
+                    _backgroundRetryTimer = null;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Best-effort shutdown cleanup: stops the background retry timer and attempts to
+    /// delete any directories still pending. Failures are ignored (process is exiting).
+    /// </summary>
+    private static void ShutdownCleanup()
+    {
+        try
+        {
+            List<string> pending;
+            lock (RetryLock)
+            {
+                pending = [.. PendingBackgroundRetries];
                 _backgroundRetryTimer?.Dispose();
                 _backgroundRetryTimer = null;
             }
+
+            foreach (var path in pending)
+            {
+                try
+                {
+                    if (Directory.Exists(path))
+                    {
+                        TryDeleteFilesIndividually(path);
+                        Directory.Delete(path, true);
+                    }
+                }
+                catch
+                {
+                    // Best effort only - the temp OS will clean these up eventually
+                }
+            }
+        }
+        catch
+        {
+            // Never throw during shutdown
         }
     }
 

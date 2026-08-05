@@ -220,12 +220,8 @@ public partial class ValidatePage : IDisposable
             }
             else
             {
+                // LoadDatFileAsync caches the loaded file itself on success.
                 datLoaded = await LoadDatFileAsync(datFilePath);
-                if (datLoaded)
-                {
-                    _loadedDatFilePath = datFilePath;
-                    _loadedDatFileTimestamp = datFileInfo.LastWriteTimeUtc;
-                }
             }
 
             if (!datLoaded)
@@ -656,8 +652,9 @@ public partial class ValidatePage : IDisposable
         }
         catch (IOException ex)
         {
-            // Don't report corrupted/unreadable files as bugs - these are user environment issues
-            LoggerService.LogError("Validation", $"IO error reading file '{filePath}': {ex.Message}");
+            // Corrupted/unreadable files are user-environment issues, not application bugs:
+            // log the warning locally but do NOT send a bug report.
+            LoggerService.LogWarning("Validation", $"IO error reading file '{filePath}': {ex.Message}");
             return (false, $"File I/O error (file may be corrupted or unreadable): {ex.Message}");
         }
         catch (Exception ex)
@@ -692,18 +689,26 @@ public partial class ValidatePage : IDisposable
 
         try
         {
-            // Read a preview of the DAT file for error reporting (first 5000 characters)
+            // Read a preview of the DAT file for error reporting (first 5000 characters).
+            // Latin-1 maps bytes 1:1 to chars, so binary magic-number signatures
+            // (7z, GZIP, PNG, ...) remain detectable in the preview string.
             try
             {
                 await using var stream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
-                using var reader = new StreamReader(stream);
+                using var reader = new StreamReader(stream, Encoding.Latin1);
                 var buffer = new char[5000];
                 var charsRead = await reader.ReadBlockAsync(buffer, 0, 5000);
                 datFilePreview = new string(buffer, 0, charsRead);
 
-                if (charsRead == 5000)
+                // Only mark the preview truncated when there really is more content:
+                // probe with a single extra character (EndOfStream would be CA2024).
+                if (charsRead == buffer.Length)
                 {
-                    datFilePreview += "\n\n[... FILE TRUNCATED FOR PREVIEW ...]";
+                    var probe = new char[1];
+                    if (await reader.ReadBlockAsync(probe, 0, 1) > 0)
+                    {
+                        datFilePreview += "\n\n[... FILE TRUNCATED FOR PREVIEW ...]";
+                    }
                 }
             }
             catch
@@ -845,13 +850,24 @@ public partial class ValidatePage : IDisposable
                     return false;
                 }
             }
-            catch (XmlException)
+            catch (XmlException xmlEx)
             {
                 const string errorMsg = "Incompatible DAT file format.\n\n" +
                                         "This application only supports No-Intro XML DAT files.\n\n" +
                                         "The selected file does not contain valid XML data or is a binary file.\n\n" +
                                         "Please ensure you are using a No-Intro XML DAT file from https://no-intro.org/";
                 LogMessage($"Error: {errorMsg}");
+
+                // Only report genuinely malformed XML. Binary files (e.g. disc images renamed
+                // to .dat) are user-input mistakes, not application bugs, so skip the report.
+                if (DetectKnownBinaryFormat(datFilePreview) == null && !LooksLikeBinaryContent(datFilePreview))
+                {
+                    var detailedError = $"XML parsing error for DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                                        $"Error: {xmlEx.Message}\n\n" +
+                                        $"Line: {xmlEx.LineNumber}, Position: {xmlEx.LinePosition}\n\n" +
+                                        $"File Preview:\n{datFilePreview}";
+                    _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, xmlEx);
+                }
 
                 ShowIncompatibleDatFileError(errorMsg);
                 ClearRomDatabase();
@@ -981,6 +997,11 @@ public partial class ValidatePage : IDisposable
 
             LogMessage($"Successfully loaded {_romDatabase.Count} unique ROM entries from '{datafile.Header?.Name}'.");
             _mainWindow.UpdateStatusBarMessage($"DAT loaded: {datafile.Header?.Name} ({_romDatabase.Count} ROMs).");
+
+            // Cache the loaded file so re-running validation with the same unchanged DAT
+            // skips re-parsing (Issue 8 fix). Set here so browse-loaded files benefit too.
+            _loadedDatFilePath = datFilePath;
+            _loadedDatFileTimestamp = new FileInfo(datFilePath).LastWriteTimeUtc;
             return true;
         }
         catch (InvalidOperationException ex) when (ex.InnerException != null)
@@ -1188,8 +1209,8 @@ public partial class ValidatePage : IDisposable
         }
         catch (Exception ex)
         {
+            // LogError already forwards the report to the bug report API via the Serilog sink.
             LoggerService.LogError("Validation", $"Error finding ROM by hash for '{filePath}': {ex.Message}");
-            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error finding ROM by hash for file '{filePath}'", ex, null, token);
             return (null, string.Empty);
         }
     }
@@ -1432,8 +1453,8 @@ public partial class ValidatePage : IDisposable
         }
         catch (Exception ex)
         {
+            // LogException already forwards the report to the bug report API via the Serilog sink.
             LoggerService.LogException("ValidatePage", ex, "Error selecting ROMs folder");
-            _ = _mainWindow.BugReportService.SendBugReportAsync("Error selecting ROMs folder in ValidatePage", ex);
         }
     }
 

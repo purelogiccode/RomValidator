@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -153,6 +154,26 @@ public partial class MainWindow : IDisposable
         }
     }
 
+    private void OpenAppData_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // Make sure the data/logs/screenshot folders exist before opening them.
+            AppPaths.EnsureCreated();
+            Process.Start(new ProcessStartInfo(AppPaths.AppDataDirectory) { UseShellExecute = true });
+            UpdateStatusBarMessage($"Opened data folder: {AppPaths.AppDataDirectory}");
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("MainWindow", ex, "Error opening application data folder");
+            MessageBox.Show(
+                $"Could not open the data folder.\n\nYou can find it here:\n{AppPaths.AppDataDirectory}",
+                "App Data Folder",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+    }
+
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -205,7 +226,6 @@ public partial class MainWindow : IDisposable
         try
         {
             App.CancelAllOperations();
-            Thread.Sleep(50);
         }
         catch (Exception ex)
         {
@@ -243,15 +263,8 @@ public partial class MainWindow : IDisposable
             _ = BugReportService.SendBugReportAsync("Error disposing VersionChecker", ex);
         }
 
-        // Dispose BugReportService last, after all error reporting is complete
-        try
-        {
-            BugReportService.Dispose();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"BugReportService dispose error: {ex.Message}");
-        }
+        // BugReportService is owned by App and disposed in App.OnExit (after the
+        // Serilog logger is flushed), so it stays alive for all error reporting above.
 
         GC.SuppressFinalize(this);
     }

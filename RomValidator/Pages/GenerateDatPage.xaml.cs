@@ -72,8 +72,8 @@ public partial class GenerateDatPage : IDisposable
         }
         catch (Exception ex)
         {
+            // LogException already forwards the report to the bug report API via the Serilog sink.
             LoggerService.LogException("GenerateDatPage", ex, "Error selecting folder");
-            _ = _mainWindow.BugReportService.SendBugReportAsync("Error selecting folder in GenerateDatPage", ex);
         }
     }
 
@@ -117,6 +117,11 @@ public partial class GenerateDatPage : IDisposable
             StartButton.IsEnabled = false;
             StopButton.IsEnabled = true;
             ExportDatButton.IsEnabled = false;
+            // Disable folder selection and reset while hashing: ResetPage() cancels and
+            // disposes the running operation's CTS, which would leave the stale operation
+            // popping a spurious "cancelled" dialog after a new folder was picked.
+            SelectFolderButton.IsEnabled = false;
+            ResetButton.IsEnabled = false;
             await _mainWindow.UpdateStatusBarMessageAsync("Hashing in progress...", operationCts.Token);
 
             // Use the captured CTS instance
@@ -170,6 +175,8 @@ public partial class GenerateDatPage : IDisposable
         {
             StartButton.IsEnabled = true;
             StopButton.IsEnabled = false;
+            SelectFolderButton.IsEnabled = true;
+            ResetButton.IsEnabled = true;
 
             // Dispose only this operation's CTS instance
             lock (_ctsLock)

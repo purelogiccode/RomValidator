@@ -30,6 +30,12 @@
                     <TextBlock Text="http://www.purelogiccode.com" />
                 </Hyperlink>
             </TextBlock>
+
+            <TextBlock Margin="0,5,0,0">
+                <Hyperlink NavigateUri="https://github.com/drpetersonfernandes/RomValidator" RequestNavigate="Hyperlink_RequestNavigate" ToolTip="Visit the GitHub repository (source code, releases, issues)">
+                    <TextBlock Text="https://github.com/drpetersonfernandes/RomValidator" />
+                </Hyperlink>
+            </TextBlock>
         </StackPanel>
 
         <Button Grid.Row="2" Margin="10,10,10,20" Click="CloseButton_Click" Content="Close" ToolTip="Close this window" Style="{StaticResource CloseButtonStyle}" />
