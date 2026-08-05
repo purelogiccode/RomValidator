@@ -87,17 +87,17 @@
                                 <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" Style="{StaticResource DatFieldLabelTextBlockStyle}"/>
-                            <TextBlock x:Name="DatNameTextBlock" Grid.Row="0" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Style="{StaticResource DatFieldValueTextBlockStyle}"/>
+                            <TextBlock x:Name="DatNameTextBlock" Grid.Row="0" Grid.Column="1" Text="N/A" Style="{StaticResource DatFieldValueTextBlockStyle}"/>
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Description:" Style="{StaticResource DatFieldLabelTextBlockStyle}"/>
-                            <TextBlock x:Name="DatDescriptionTextBlock" Grid.Row="1" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Style="{StaticResource DatFieldValueTextBlockStyle}"/>
+                            <TextBlock x:Name="DatDescriptionTextBlock" Grid.Row="1" Grid.Column="1" Text="N/A" Style="{StaticResource DatFieldValueTextBlockStyle}"/>
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="Version:" Style="{StaticResource DatFieldLabelTextBlockStyle}"/>
                             <TextBlock x:Name="DatVersionTextBlock" Grid.Row="2" Grid.Column="1" Text="N/A" Style="{StaticResource DatFieldValueTextBlockStyle}"/>
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="Author:" Style="{StaticResource DatFieldLabelTextBlockStyle}"/>
-                            <TextBlock x:Name="DatAuthorTextBlock" Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Style="{StaticResource DatFieldValueTextBlockStyle}"/>
+                            <TextBlock x:Name="DatAuthorTextBlock" Grid.Row="3" Grid.Column="1" Text="N/A" Style="{StaticResource DatFieldValueTextBlockStyle}"/>
                             <TextBlock Grid.Row="4" Grid.Column="0" Text="Homepage:" Style="{StaticResource DatFieldLabelTextBlockStyle}"/>
                             <TextBlock x:Name="DatHomepageTextBlock" Grid.Row="4" Grid.Column="1" Text="N/A" Style="{StaticResource DatFieldValueTextBlockStyle}"/>
                             <TextBlock Grid.Row="5" Grid.Column="0" Text="URL:" Style="{StaticResource DatFieldLabelTextBlockStyle}"/>
-                            <TextBlock x:Name="DatUrlTextBlock" Grid.Row="5" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Style="{StaticResource DatFieldValueTextBlockStyle}"/>
+                            <TextBlock x:Name="DatUrlTextBlock" Grid.Row="5" Grid.Column="1" Text="N/A" Style="{StaticResource DatFieldValueTextBlockStyle}"/>
                             <TextBlock Grid.Row="6" Grid.Column="0" Text="ROM Entries:" Style="{StaticResource DatFieldLabelTextBlockStyle}" Margin="0,10,5,0"/>
                             <TextBlock x:Name="DatRomCountTextBlock" Grid.Row="6" Grid.Column="1" Text="0" Margin="0,10,0,0"/>
                         </Grid>
