@@ -174,6 +174,48 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
+    public async Task CleanupTempDirectoryDeletesDirectoryWhenFileIsTemporarilyLocked()
+    {
+        // Regression test for bug reports: "Failed to delete temp directory ... The process cannot
+        // access the file ... because it is being used by another process."
+        // Arrange - create a temp directory containing a file we hold an exclusive lock on.
+        var tempDir = TempDirectoryHelper.CreateTempDirectory("locked_cleanup");
+        var lockedFile = Path.Combine(tempDir, "locked.bin");
+        await File.WriteAllTextAsync(lockedFile, "test");
+
+        // Hold an exclusive lock for 4 seconds: the retry loop (200ms, 400ms, ...) fails its
+        // first attempts while the file is locked, then succeeds once the lock is released.
+        // The stream lives and is disposed inside this task - no outer-scope disposal needed.
+        var lockAcquired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lockTask = Task.Run(async () =>
+        {
+            try
+            {
+                await using var lockStream = new FileStream(lockedFile, FileMode.Open, FileAccess.Read, FileShare.None);
+                lockAcquired.SetResult();
+                await Task.Delay(TimeSpan.FromSeconds(4));
+            }
+            catch (Exception ex)
+            {
+                lockAcquired.SetException(ex);
+                throw;
+            }
+        });
+
+        // Wait until the file is actually locked before starting cleanup
+        await lockAcquired.Task;
+
+        // Act - must not throw and must eventually delete the directory via retries
+        await TempDirectoryHelper.CleanupTempDirectoryAsync(tempDir);
+
+        // Ensure the lock stream is released before the test completes
+        await lockTask;
+
+        // Assert
+        Assert.False(Directory.Exists(tempDir), "Temp directory should be deleted after the file lock is released.");
+    }
+
+    [Fact]
     public async Task CleanupAllTrackedDirectoriesRemovesRemainingDirectories()
     {
         // Arrange - create directories but do not clean them up individually
