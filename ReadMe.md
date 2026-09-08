@@ -1,5 +1,5 @@
-[![GitHub release](https://img.shields.io/github/v/release/drpetersonfernandes/RomValidator)](https://github.com/drpetersonfernandes/RomValidator/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/drpetersonfernandes/RomValidator/releases)
+[![GitHub release](https://img.shields.io/github/v/release/purelogiccode/RomValidator)](https://github.com/purelogiccode/RomValidator/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/RomValidator/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
 
 # ROM Validator

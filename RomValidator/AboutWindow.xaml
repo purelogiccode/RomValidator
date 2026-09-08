@@ -1,4 +1,4 @@
-﻿<Window x:Class="RomValidator.AboutWindow"
+<Window x:Class="RomValidator.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About ROM Validator"
@@ -32,8 +32,8 @@
             </TextBlock>
 
             <TextBlock Margin="0,5,0,0">
-                <Hyperlink NavigateUri="https://github.com/drpetersonfernandes/RomValidator" RequestNavigate="Hyperlink_RequestNavigate" ToolTip="Visit the GitHub repository (source code, releases, issues)">
-                    <TextBlock Text="https://github.com/drpetersonfernandes/RomValidator" />
+                <Hyperlink NavigateUri="https://github.com/purelogiccode/RomValidator" RequestNavigate="Hyperlink_RequestNavigate" ToolTip="Visit the GitHub repository (source code, releases, issues)">
+                    <TextBlock Text="https://github.com/purelogiccode/RomValidator" />
                 </Hyperlink>
             </TextBlock>
         </StackPanel>

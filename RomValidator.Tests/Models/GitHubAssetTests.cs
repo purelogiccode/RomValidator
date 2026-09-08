@@ -62,7 +62,7 @@ public class GitHubAssetTests
         const string json = """
                             {
                                 "name": "RomValidator_v2.7.2_win-x64.zip",
-                                "browser_download_url": "https://github.com/drpetersonfernandes/RomValidator/releases/download/v2.7.2/RomValidator_v2.7.2_win-x64.zip"
+                                "browser_download_url": "https://github.com/purelogiccode/RomValidator/releases/download/v2.7.2/RomValidator_v2.7.2_win-x64.zip"
                             }
                             """;
 
@@ -72,6 +72,6 @@ public class GitHubAssetTests
         // Assert
         Assert.NotNull(asset);
         Assert.Contains("RomValidator_v2.7.2_win-x64", asset.Name);
-        Assert.Contains("drpetersonfernandes", asset.BrowserDownloadUrl);
+        Assert.Contains("purelogiccode", asset.BrowserDownloadUrl);
     }
 }

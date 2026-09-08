@@ -38,7 +38,7 @@ public partial class MainWindow : IDisposable
         BugReportService = ((App)Application.Current).GetBugReportService()
                            ?? throw new InvalidOperationException("BugReportService must be initialized before MainWindow.");
 
-        VersionChecker = new GitHubVersionChecker("drpetersonfernandes", "RomValidator", BugReportService);
+        VersionChecker = new GitHubVersionChecker("purelogiccode", "RomValidator", BugReportService);
 
         // Initialize Pages
         _validatePage = new ValidatePage(this);

@@ -73,11 +73,11 @@ public class GitHubReleaseTests
         const string json = """
                             {
                                 "tag_name": "v2.7.2",
-                                "html_url": "https://github.com/drpetersonfernandes/RomValidator/releases/tag/v2.7.2",
+                                "html_url": "https://github.com/purelogiccode/RomValidator/releases/tag/v2.7.2",
                                 "assets": [
                                     {
                                         "name": "RomValidator_v2.7.2_win-x64.zip",
-                                        "browser_download_url": "https://github.com/drpetersonfernandes/RomValidator/releases/download/v2.7.2/RomValidator_v2.7.2_win-x64.zip"
+                                        "browser_download_url": "https://github.com/purelogiccode/RomValidator/releases/download/v2.7.2/RomValidator_v2.7.2_win-x64.zip"
                                     }
                                 ]
                             }
@@ -89,7 +89,7 @@ public class GitHubReleaseTests
         // Assert
         Assert.NotNull(release);
         Assert.Equal("v2.7.2", release.TagName);
-        Assert.Contains("drpetersonfernandes", release.HtmlUrl);
+        Assert.Contains("purelogiccode", release.HtmlUrl);
         Assert.NotNull(release.Assets);
         Assert.Single(release.Assets);
         Assert.Contains("RomValidator_v2.7.2_win-x64", release.Assets[0].Name);
