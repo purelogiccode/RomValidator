@@ -20,10 +20,10 @@ public class Rom
     [XmlAttribute("size")]
     public string SizeString
     {
-        get => Size.ToString();
+        get => Size.ToString(System.Globalization.CultureInfo.InvariantCulture);
         set
         {
-            if (long.TryParse(value, out var result))
+            if (long.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var result))
             {
                 Size = result;
             }

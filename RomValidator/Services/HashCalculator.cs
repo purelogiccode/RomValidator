@@ -18,7 +18,7 @@ public static partial class HashCalculator
     // Archive file extensions supported - shared regex pattern
     private static readonly Regex SArchiveExtensionRegex = MyRegex();
     private static bool _sevenZipInitialized;
-    private static readonly object InitLock = new();
+    private static readonly Lock InitLock = new();
     private const int BufferSize = 65536; // 64KB buffer for file operations
     private const int InitialRetryDelayMs = 100; // Initial delay for retry attempts in milliseconds
     private const int ErrorDiskFull = unchecked((int)0x80070070);
@@ -83,7 +83,8 @@ public static partial class HashCalculator
     /// <param name="cancellationToken">Cancellation token to stop the operation.</param>
     /// <param name="bugReportService">Optional bug report service for error tracking.</param>
     /// <returns>A list of <see cref="GameFile"/> objects containing hash results for each file.</returns>
-    public static async Task<List<GameFile>> CalculateHashesAsync(string filePath, CancellationToken cancellationToken, BugReportService? bugReportService = null)
+    public static async Task<List<GameFile>> CalculateHashesAsync(string filePath, CancellationToken cancellationToken,
+        BugReportService? bugReportService = null)
     {
         InitializeSevenZip();
 
@@ -99,7 +100,8 @@ public static partial class HashCalculator
                 FileName = fileInfo.Name,
                 GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
                 FileSize = fileInfo.Length,
-                ErrorMessage = "This file is a cloud-only placeholder and is not fully available locally. Please ensure the file is downloaded to your device.",
+                ErrorMessage =
+                    "This file is a cloud-only placeholder and is not fully available locally. Please ensure the file is downloaded to your device.",
                 IsUserError = true,
                 Crc32 = "ERROR",
                 Md5 = "ERROR",
@@ -149,10 +151,13 @@ public static partial class HashCalculator
                             // Individual entry is corrupted - log warning but do not send bug report for corrupt files
                             if (IsDiskFullError(entryEx))
                             {
-                                _ = bugReportService?.SendBugReportAsync($"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}' - DISK FULL", entryEx);
+                                _ = bugReportService?.SendBugReportAsync(
+                                    $"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}' - DISK FULL",
+                                    entryEx);
                             }
 
-                            LoggerService.LogWarning("HashCalculator", $"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}': {entryEx.Message}");
+                            LoggerService.LogWarning("HashCalculator",
+                                $"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}': {entryEx.Message}");
                             gameFiles.Add(new GameFile
                             {
                                 FileName = entry.FileName,
@@ -172,16 +177,20 @@ public static partial class HashCalculator
                             // Internal error extracting individual entry - log warning but do not send bug report for corrupt files
                             if (IsDiskFullError(entryEx))
                             {
-                                _ = bugReportService?.SendBugReportAsync($"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}' - DISK FULL", entryEx);
+                                _ = bugReportService?.SendBugReportAsync(
+                                    $"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}' - DISK FULL",
+                                    entryEx);
                             }
 
-                            LoggerService.LogWarning("HashCalculator", $"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}': {entryEx.Message}");
+                            LoggerService.LogWarning("HashCalculator",
+                                $"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}': {entryEx.Message}");
                             gameFiles.Add(new GameFile
                             {
                                 FileName = entry.FileName,
                                 GameName = Path.GetFileNameWithoutExtension(entry.FileName),
                                 FileSize = (long)entry.Size,
-                                ErrorMessage = "An error occurred while extracting this file from the archive. It may be corrupted or use an unsupported format.",
+                                ErrorMessage =
+                                    "An error occurred while extracting this file from the archive. It may be corrupted or use an unsupported format.",
                                 IsUserError = true,
                                 Crc32 = "ERROR",
                                 Md5 = "ERROR",
@@ -226,10 +235,12 @@ public static partial class HashCalculator
                 // Invalid or unrecognized archive format - do not send bug report for corrupt files
                 if (IsDiskFullError(archiveEx))
                 {
-                    _ = bugReportService?.SendBugReportAsync($"Invalid or unrecognized archive format for file '{fileInfo.Name}' - DISK FULL", archiveEx);
+                    _ = bugReportService?.SendBugReportAsync(
+                        $"Invalid or unrecognized archive format for file '{fileInfo.Name}' - DISK FULL", archiveEx);
                 }
 
-                LoggerService.LogWarning("HashCalculator", $"Invalid or unrecognized archive format for file '{fileInfo.Name}': {archiveEx.Message}");
+                LoggerService.LogWarning("HashCalculator",
+                    $"Invalid or unrecognized archive format for file '{fileInfo.Name}': {archiveEx.Message}");
                 return
                 [
                     new GameFile
@@ -237,7 +248,8 @@ public static partial class HashCalculator
                         FileName = fileInfo.Name,
                         GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
                         FileSize = fileInfo.Length,
-                        ErrorMessage = "The archive file appears to be corrupted, incomplete, or in an unsupported format. The file may be damaged or not a valid archive.",
+                        ErrorMessage =
+                            "The archive file appears to be corrupted, incomplete, or in an unsupported format. The file may be damaged or not a valid archive.",
                         IsUserError = true,
                         Crc32 = "ERROR",
                         Md5 = "ERROR",
@@ -251,10 +263,12 @@ public static partial class HashCalculator
                 // Archive is corrupted or has data errors - do not send bug report for corrupt files
                 if (IsDiskFullError(archiveEx))
                 {
-                    _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}' - DISK FULL", archiveEx);
+                    _ = bugReportService?.SendBugReportAsync(
+                        $"Archive extraction failed for file '{fileInfo.Name}' - DISK FULL", archiveEx);
                 }
 
-                LoggerService.LogWarning("HashCalculator", $"Archive extraction failed for file '{fileInfo.Name}': {archiveEx.Message}");
+                LoggerService.LogWarning("HashCalculator",
+                    $"Archive extraction failed for file '{fileInfo.Name}': {archiveEx.Message}");
                 return
                 [
                     new GameFile
@@ -262,7 +276,8 @@ public static partial class HashCalculator
                         FileName = fileInfo.Name,
                         GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
                         FileSize = fileInfo.Length,
-                        ErrorMessage = "The archive is corrupted or has data errors. The file may be incomplete or damaged.",
+                        ErrorMessage =
+                            "The archive is corrupted or has data errors. The file may be incomplete or damaged.",
                         IsUserError = true,
                         Crc32 = "ERROR",
                         Md5 = "ERROR",
@@ -276,10 +291,12 @@ public static partial class HashCalculator
                 // Internal SharpSevenZip error during extraction - do not send bug report for corrupt files
                 if (IsDiskFullError(sevenZipEx))
                 {
-                    _ = bugReportService?.SendBugReportAsync($"SharpSevenZip internal error processing archive '{fileInfo.Name}' - DISK FULL", sevenZipEx);
+                    _ = bugReportService?.SendBugReportAsync(
+                        $"SharpSevenZip internal error processing archive '{fileInfo.Name}' - DISK FULL", sevenZipEx);
                 }
 
-                LoggerService.LogWarning("HashCalculator", $"SharpSevenZip internal error processing archive '{fileInfo.Name}': {sevenZipEx.Message}");
+                LoggerService.LogWarning("HashCalculator",
+                    $"SharpSevenZip internal error processing archive '{fileInfo.Name}': {sevenZipEx.Message}");
                 return
                 [
                     new GameFile
@@ -287,7 +304,8 @@ public static partial class HashCalculator
                         FileName = fileInfo.Name,
                         GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
                         FileSize = fileInfo.Length,
-                        ErrorMessage = "An internal error occurred while reading the archive. The file may be corrupted, partially downloaded, or use an unsupported compression method.",
+                        ErrorMessage =
+                            "An internal error occurred while reading the archive. The file may be corrupted, partially downloaded, or use an unsupported compression method.",
                         IsUserError = true,
                         Crc32 = "ERROR",
                         Md5 = "ERROR",
@@ -301,10 +319,12 @@ public static partial class HashCalculator
                 // Unexpected error - only send bug report for disk-full or truly unexpected errors
                 if (IsDiskFullError(ex))
                 {
-                    _ = bugReportService?.SendBugReportAsync($"Unexpected archive extraction error for file '{fileInfo.Name}' - DISK FULL", ex);
+                    _ = bugReportService?.SendBugReportAsync(
+                        $"Unexpected archive extraction error for file '{fileInfo.Name}' - DISK FULL", ex);
                 }
 
-                LoggerService.LogException("HashCalculator", ex, $"Unexpected error processing archive '{fileInfo.Name}'");
+                LoggerService.LogException("HashCalculator", ex,
+                    $"Unexpected error processing archive '{fileInfo.Name}'");
                 // Return an error object for the archive itself so the UI knows extraction failed.
                 // We do NOT hash the container anymore.
                 return
@@ -354,7 +374,8 @@ public static partial class HashCalculator
     {
         try
         {
-            await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, true);
+            await using var fileStream =
+                new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, true);
             return await ProcessStreamAsync(
                 fileStream,
                 fileInfo.Name,
@@ -459,7 +480,8 @@ public static partial class HashCalculator
                 // Win32 ERROR_CRC: the data cannot be read from the medium (bad sectors,
                 // corrupted file, failing disk). Retrying will not help and this is a
                 // user hardware/environment issue, not an app bug — no bug report.
-                gameFile.ErrorMessage = "The file cannot be read: data error (CRC). The file or the disk it is stored on may be corrupted.";
+                gameFile.ErrorMessage =
+                    "The file cannot be read: data error (CRC). The file or the disk it is stored on may be corrupted.";
                 gameFile.Crc32 = "ERROR";
                 gameFile.Md5 = "ERROR";
                 gameFile.Sha1 = "ERROR";
@@ -501,7 +523,8 @@ public static partial class HashCalculator
             }
         }
 
-        _ = bugReportService?.SendBugReportAsync("Unexpected exit from retry loop in ProcessStreamAsync", new InvalidOperationException("Retry loop exceeded max attempts without returning or throwing"));
+        _ = bugReportService?.SendBugReportAsync("Unexpected exit from retry loop in ProcessStreamAsync",
+            new InvalidOperationException("Retry loop exceeded max attempts without returning or throwing"));
         gameFile.ErrorMessage = "Unexpected error during hash calculation";
         return gameFile;
     }
@@ -532,6 +555,6 @@ public static partial class HashCalculator
                ex.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase);
     }
 
-    [GeneratedRegex(@"\.(zip|7z|rar)$", RegexOptions.IgnoreCase, "en-US")]
+    [GeneratedRegex(@"\.(zip|7z|rar)$", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, 2000, "en-US")]
     private static partial Regex MyRegex();
 }

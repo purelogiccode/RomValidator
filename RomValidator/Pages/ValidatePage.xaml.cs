@@ -26,7 +26,7 @@ public partial class ValidatePage : IDisposable
     private string _loadedDatFilePath = string.Empty;
     private DateTime _loadedDatFileTimestamp;
     private CancellationTokenSource? _cts;
-    private readonly object _ctsLock = new();
+    private readonly Lock _ctsLock = new();
     private bool _diskSpaceExhausted;
 
     // Statistics
@@ -90,7 +90,8 @@ public partial class ValidatePage : IDisposable
     private void DisplayInstructions()
     {
         LogMessage("Welcome to the ROM Validator.");
-        LogMessage("This tool validates your ROM files against NoIntro DAT file to ensure they are accurate and uncorrupted.");
+        LogMessage(
+            "This tool validates your ROM files against NoIntro DAT file to ensure they are accurate and uncorrupted.");
         LogMessage("");
         LogMessage("Please follow these steps:");
         LogMessage("1. Select the folder containing the ROM files you want to scan.");
@@ -104,7 +105,8 @@ public partial class ValidatePage : IDisposable
     private async Task CheckForUpdatesOnStartupAsync()
     {
         _mainWindow.UpdateStatusBarMessage("Checking for updates...");
-        var (isNewVersionAvailable, releaseUrl, latestVersionTag) = await _mainWindow.VersionChecker.CheckForNewVersionAsync();
+        var (isNewVersionAvailable, releaseUrl, latestVersionTag) =
+            await _mainWindow.VersionChecker.CheckForNewVersionAsync();
 
         if (isNewVersionAvailable && releaseUrl != null && latestVersionTag != null)
         {
@@ -127,7 +129,8 @@ public partial class ValidatePage : IDisposable
                 catch (Exception ex)
                 {
                     ShowError($"Could not open release page: {ex.Message}");
-                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error opening GitHub release page: {releaseUrl}", ex);
+                    _ = _mainWindow.BugReportService.SendBugReportAsync(
+                        $"Error opening GitHub release page: {releaseUrl}", ex);
                 }
             }
         }
@@ -153,21 +156,24 @@ public partial class ValidatePage : IDisposable
             if (string.IsNullOrEmpty(romsFolderPath) || string.IsNullOrEmpty(datFilePath))
             {
                 ShowError("Please select both a ROMs folder and a DAT file.");
-                if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Error: Please select paths.", operationCts.Token);
+                if (operationCts != null)
+                    await _mainWindow.UpdateStatusBarMessageAsync("Error: Please select paths.", operationCts.Token);
                 return;
             }
 
             if (!Directory.Exists(romsFolderPath))
             {
                 ShowError($"The selected ROMs folder does not exist: {romsFolderPath}");
-                if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Error: ROMs folder not found.", operationCts.Token);
+                if (operationCts != null)
+                    await _mainWindow.UpdateStatusBarMessageAsync("Error: ROMs folder not found.", operationCts.Token);
                 return;
             }
 
             if (!File.Exists(datFilePath))
             {
                 ShowError($"The selected DAT file does not exist: {datFilePath}");
-                if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Error: DAT file not found.", operationCts.Token);
+                if (operationCts != null)
+                    await _mainWindow.UpdateStatusBarMessageAsync("Error: DAT file not found.", operationCts.Token);
                 return;
             }
 
@@ -185,7 +191,9 @@ public partial class ValidatePage : IDisposable
 
                 if (confirmationResult != MessageBoxResult.Yes)
                 {
-                    if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Validation cancelled - deletion not confirmed.", operationCts.Token);
+                    if (operationCts != null)
+                        await _mainWindow.UpdateStatusBarMessageAsync("Validation cancelled - deletion not confirmed.",
+                            operationCts.Token);
                     return;
                 }
             }
@@ -211,7 +219,7 @@ public partial class ValidatePage : IDisposable
             // Skip re-loading if the same DAT file was already loaded and hasn't changed (Issue 8 fix)
             var datFileInfo = new FileInfo(datFilePath);
             bool datLoaded;
-            if (_loadedDatFilePath == datFilePath &&
+            if (string.Equals(_loadedDatFilePath, datFilePath, StringComparison.OrdinalIgnoreCase) &&
                 _loadedDatFileTimestamp == datFileInfo.LastWriteTimeUtc &&
                 _romDatabase.Count > 0)
             {
@@ -231,19 +239,23 @@ public partial class ValidatePage : IDisposable
                 return;
             }
 
-            await _mainWindow.UpdateStatusBarMessageAsync("DAT file loaded. Starting ROM validation...", operationCts.Token);
-            await PerformValidationAsync(romsFolderPath, moveSuccess, moveFailed, deleteFailed, renameMatched, operationCts.Token);
+            await _mainWindow.UpdateStatusBarMessageAsync("DAT file loaded. Starting ROM validation...",
+                operationCts.Token);
+            await PerformValidationAsync(romsFolderPath, moveSuccess, moveFailed, deleteFailed, renameMatched,
+                operationCts.Token);
         }
         catch (OperationCanceledException)
         {
             LogMessage("Validation operation was canceled by the user.");
-            if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Validation canceled.", operationCts.Token);
+            if (operationCts != null)
+                await _mainWindow.UpdateStatusBarMessageAsync("Validation canceled.", operationCts.Token);
         }
         catch (Exception ex)
         {
             LogMessage($"An unexpected error occurred: {ex.Message}");
             ShowError($"An unexpected error occurred during validation: {ex.Message}");
-            if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Validation failed with an error.", operationCts.Token);
+            if (operationCts != null)
+                await _mainWindow.UpdateStatusBarMessageAsync("Validation failed with an error.", operationCts.Token);
             _ = _mainWindow.BugReportService.SendBugReportAsync("Exception during PerformValidationAsync", ex);
         }
         finally
@@ -267,7 +279,8 @@ public partial class ValidatePage : IDisposable
         }
     }
 
-    private async Task PerformValidationAsync(string romsFolderPath, bool moveSuccess, bool moveFailed, bool deleteFailed, bool renameMatched, CancellationToken token)
+    private async Task PerformValidationAsync(string romsFolderPath, bool moveSuccess, bool moveFailed,
+        bool deleteFailed, bool renameMatched, CancellationToken token)
     {
         try
         {
@@ -278,9 +291,11 @@ public partial class ValidatePage : IDisposable
             if (moveSuccess) Directory.CreateDirectory(successPath);
             if (moveFailed) Directory.CreateDirectory(failPath);
 
-            await LogMessageAsync($"Move successful files: {moveSuccess}" + (moveSuccess ? $" (to {successPath})" : ""));
+            await LogMessageAsync($"Move successful files: {moveSuccess}" +
+                                  (moveSuccess ? $" (to {successPath})" : ""));
             await LogMessageAsync($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
-            await LogMessageAsync($"Delete failed/unknown files: {deleteFailed}" + (deleteFailed ? " (⚠️ PERMANENT - files will be deleted!)" : ""));
+            await LogMessageAsync($"Delete failed/unknown files: {deleteFailed}" +
+                                  (deleteFailed ? " (⚠️ PERMANENT - files will be deleted!)" : ""));
             await LogMessageAsync($"Rename files on hash match: {renameMatched}");
 
             var enumerationOptions = new EnumerationOptions
@@ -289,12 +304,15 @@ public partial class ValidatePage : IDisposable
                 RecurseSubdirectories = false,
                 AttributesToSkip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint
             };
-            var filesToScan = await Task.Run(() => Directory.EnumerateFiles(romsFolderPath, "*", enumerationOptions).ToArray(), token);
+            var filesToScan =
+                await Task.Run(() => Directory.EnumerateFiles(romsFolderPath, "*", enumerationOptions).ToArray(),
+                    token);
             _totalFilesToProcess = filesToScan.Length;
             await Application.Current.Dispatcher.InvokeAsync(() => ProgressBar.Maximum = _totalFilesToProcess);
             UpdateStatsDisplay();
             await LogMessageAsync($"Found {_totalFilesToProcess} files to validate.");
-            await _mainWindow.UpdateStatusBarMessageAsync($"Found {_totalFilesToProcess} files. Starting validation...", token);
+            await _mainWindow.UpdateStatusBarMessageAsync($"Found {_totalFilesToProcess} files. Starting validation...",
+                token);
 
             if (_totalFilesToProcess == 0)
             {
@@ -314,12 +332,15 @@ public partial class ValidatePage : IDisposable
 
                 if (_diskSpaceExhausted)
                 {
-                    LogMessage("[WARNING] Validation queue stopped due to insufficient disk space on all available drives.");
-                    await _mainWindow.UpdateStatusBarMessageAsync("Validation stopped: insufficient disk space.", token);
+                    LogMessage(
+                        "[WARNING] Validation queue stopped due to insufficient disk space on all available drives.");
+                    await _mainWindow.UpdateStatusBarMessageAsync("Validation stopped: insufficient disk space.",
+                        token);
                     break;
                 }
 
-                await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, deleteFailed, renameMatched, token);
+                await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, deleteFailed,
+                    renameMatched, token);
 
                 var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
                 UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
@@ -339,7 +360,8 @@ public partial class ValidatePage : IDisposable
         }
     }
 
-    private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess, bool moveFailed, bool deleteFailed, bool renameMatched, CancellationToken token)
+    private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess,
+        bool moveFailed, bool deleteFailed, bool renameMatched, CancellationToken token)
     {
         var fileName = Path.GetFileName(filePath);
         token.ThrowIfCancellationRequested();
@@ -428,10 +450,13 @@ public partial class ValidatePage : IDisposable
                             {
                                 // Log the error but don't fail the entire rename operation
                                 // The file was already renamed successfully, only the internal archive rename failed
-                                LogMessage($"[WARNING] {fileName} -> {displayName} renamed, but failed to rename content inside archive: {archiveEx.Message}");
+                                LogMessage(
+                                    $"[WARNING] {fileName} -> {displayName} renamed, but failed to rename content inside archive: {archiveEx.Message}");
                                 if (IsDiskFullError(archiveEx))
                                 {
-                                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file inside archive '{newFilePath}' to '{hashMatchedRom.Name}'", archiveEx, null, token);
+                                    _ = _mainWindow.BugReportService.SendBugReportAsync(
+                                        $"Error renaming file inside archive '{newFilePath}' to '{hashMatchedRom.Name}'",
+                                        archiveEx, null, token);
                                 }
                             }
                         }
@@ -447,14 +472,18 @@ public partial class ValidatePage : IDisposable
                         hashesAlreadyVerified = true; // Hashes were just verified by FindRomByHashAsync (Issue 7 fix)
                         verifiedMatchDetails = $"{matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)}";
                     }
-                    catch (Exception ex) when (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+                    catch (Exception ex) when
+                        (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
                     {
                         // Destination file already exists. Since we already verified the hash matches,
                         // the existing file is presumably the correct one. The source file is a duplicate.
-                        LogMessage($"[DUPLICATE] {fileName} - {matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)} (destination {displayName} already exists)");
+                        LogMessage(
+                            $"[DUPLICATE] {fileName} - {matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)} (destination {displayName} already exists)");
 
                         // Move duplicate to dedicated _duplicate folder
-                        var duplicatePath = Path.Combine(Path.GetDirectoryName(filePath) ?? throw new InvalidOperationException(), "_duplicate");
+                        var duplicatePath =
+                            Path.Combine(Path.GetDirectoryName(filePath) ?? throw new InvalidOperationException(),
+                                "_duplicate");
                         Directory.CreateDirectory(duplicatePath);
                         await MoveFileAsync(filePath, Path.Combine(duplicatePath, fileName));
 
@@ -464,8 +493,10 @@ public partial class ValidatePage : IDisposable
                     catch (Exception ex)
                     {
                         Interlocked.Increment(ref _failCount);
-                        LogMessage($"[FAILED] {fileName} - Hash matched {hashMatchedRom.Name} but rename failed: {ex.Message}");
-                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex, null, token);
+                        LogMessage(
+                            $"[FAILED] {fileName} - Hash matched {hashMatchedRom.Name} but rename failed: {ex.Message}");
+                        _ = _mainWindow.BugReportService.SendBugReportAsync(
+                            $"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex, null, token);
 
                         if (moveFailed)
                         {
@@ -540,7 +571,9 @@ public partial class ValidatePage : IDisposable
             LogMessage($"[FAILED] {fileName} - {matchDetails}");
 
             // If it was a critical error (like extraction failure), it will appear in matchDetails
-            if (!string.IsNullOrEmpty(matchDetails) && (matchDetails.Contains("Archive extraction failed", StringComparison.Ordinal) || matchDetails.Contains("Error", StringComparison.Ordinal)))
+            if (!string.IsNullOrEmpty(matchDetails) &&
+                (matchDetails.Contains("Archive extraction failed", StringComparison.Ordinal) ||
+                 matchDetails.Contains("Error", StringComparison.Ordinal)))
             {
                 // Optional: Highlight critical errors
                 await _mainWindow.UpdateStatusBarMessageAsync($"Error processing {fileName}", token);
@@ -569,7 +602,8 @@ public partial class ValidatePage : IDisposable
         };
     }
 
-    private async Task<(bool IsValid, string Message)> CheckHashesAsync(string filePath, List<Rom> expectedRoms, CancellationToken token)
+    private async Task<(bool IsValid, string Message)> CheckHashesAsync(string filePath, List<Rom> expectedRoms,
+        CancellationToken token)
     {
         try
         {
@@ -600,13 +634,17 @@ public partial class ValidatePage : IDisposable
                     // Strict No-Intro validation: ALL hashes present in the DAT must match
                     // Check each hash type - if DAT has it, file must match it
                     var sha256Match = string.IsNullOrEmpty(expectedRom.Sha256) ||
-                                      (!string.IsNullOrEmpty(gameFile.Sha256) && gameFile.Sha256.Equals(expectedRom.Sha256, StringComparison.OrdinalIgnoreCase));
+                                      (!string.IsNullOrEmpty(gameFile.Sha256) &&
+                                       gameFile.Sha256.Equals(expectedRom.Sha256, StringComparison.OrdinalIgnoreCase));
                     var sha1Match = string.IsNullOrEmpty(expectedRom.Sha1) ||
-                                    (!string.IsNullOrEmpty(gameFile.Sha1) && gameFile.Sha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase));
+                                    (!string.IsNullOrEmpty(gameFile.Sha1) && gameFile.Sha1.Equals(expectedRom.Sha1,
+                                        StringComparison.OrdinalIgnoreCase));
                     var md5Match = string.IsNullOrEmpty(expectedRom.Md5) ||
-                                   (!string.IsNullOrEmpty(gameFile.Md5) && gameFile.Md5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase));
+                                   (!string.IsNullOrEmpty(gameFile.Md5) && gameFile.Md5.Equals(expectedRom.Md5,
+                                       StringComparison.OrdinalIgnoreCase));
                     var crcMatch = string.IsNullOrEmpty(expectedRom.Crc) ||
-                                   (!string.IsNullOrEmpty(gameFile.Crc32) && gameFile.Crc32.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase));
+                                   (!string.IsNullOrEmpty(gameFile.Crc32) && gameFile.Crc32.Equals(expectedRom.Crc,
+                                       StringComparison.OrdinalIgnoreCase));
 
                     // All present hashes must match (strict No-Intro compliance)
                     if (sizeMatch && sha256Match && sha1Match && md5Match && crcMatch)
@@ -617,7 +655,8 @@ public partial class ValidatePage : IDisposable
                         if (!string.IsNullOrEmpty(expectedRom.Md5)) details.Add($"MD5: {gameFile.Md5}");
                         if (!string.IsNullOrEmpty(expectedRom.Crc)) details.Add($"CRC32: {gameFile.Crc32}");
 
-                        successDetails.Add($"{gameFile.FileName}: {(details.Count > 0 ? string.Join(", ", details) : "Size matched (no hashes in DAT)")}");
+                        successDetails.Add(
+                            $"{gameFile.FileName}: {(details.Count > 0 ? string.Join(", ", details) : "Size matched (no hashes in DAT)")}");
                         fileMatched = true;
                         break;
                     }
@@ -660,7 +699,8 @@ public partial class ValidatePage : IDisposable
         catch (Exception ex)
         {
             // Only report actual application bugs
-            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error checking hashes for file '{filePath}'", ex, null, token);
+            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error checking hashes for file '{filePath}'", ex,
+                null, token);
             return (false, $"Error during hash check: {ex.Message}");
         }
     }
@@ -672,7 +712,7 @@ public partial class ValidatePage : IDisposable
         ClearDatInfoDisplay();
 
         var extension = Path.GetExtension(datFilePath).ToLowerInvariant();
-        if (extension != ".dat" && extension != ".xml")
+        if (!string.Equals(extension, ".dat", StringComparison.OrdinalIgnoreCase) && !string.Equals(extension, ".xml", StringComparison.OrdinalIgnoreCase))
         {
             var errorMsg = "Invalid file type.\n\n" +
                            "ROM Validator requires a No-Intro XML DAT file with a .dat or .xml extension.\n\n" +
@@ -694,7 +734,8 @@ public partial class ValidatePage : IDisposable
             // (7z, GZIP, PNG, ...) remain detectable in the preview string.
             try
             {
-                await using var stream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+                await using var stream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                    4096, true);
                 using var reader = new StreamReader(stream, Encoding.Latin1);
                 var buffer = new char[5000];
                 var charsRead = await reader.ReadBlockAsync(buffer, 0, 5000);
@@ -742,8 +783,9 @@ public partial class ValidatePage : IDisposable
                 LogMessage($"Error: {errorMsg}");
 
                 // Send sample to developer
-                var detailedError = $"User attempted to load a ZIP file as a DAT file: {Path.GetFileName(datFilePath)}\n\n" +
-                                    $"File Preview:\n{datFilePreview}";
+                var detailedError =
+                    $"User attempted to load a ZIP file as a DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                    $"File Preview:\n{datFilePreview}";
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
                 ShowIncompatibleDatFileError(errorMsg);
@@ -762,8 +804,9 @@ public partial class ValidatePage : IDisposable
                 LogMessage($"Error: {errorMsg}");
 
                 // Send sample to developer
-                var detailedError = $"User attempted to load an HTML file as a DAT file: {Path.GetFileName(datFilePath)}\n\n" +
-                                    $"File Preview:\n{datFilePreview}";
+                var detailedError =
+                    $"User attempted to load an HTML file as a DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                    $"File Preview:\n{datFilePreview}";
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
                 ShowIncompatibleDatFileError(errorMsg);
@@ -842,8 +885,10 @@ public partial class ValidatePage : IDisposable
             // First validation pass - check for <datafile> root element
             try
             {
-                await using var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
-                using var validationReader = XmlReader.Create(validationStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
+                await using var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read,
+                    FileShare.Read, 65536, true);
+                using var validationReader = XmlReader.Create(validationStream,
+                    new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
 
                 if (!validationReader.ReadToFollowing("datafile"))
                 {
@@ -854,9 +899,10 @@ public partial class ValidatePage : IDisposable
                     LogMessage($"Error: {errorMsg}");
 
                     // Send sample to developer
-                    var detailedError = $"User attempted to load incompatible DAT file: {Path.GetFileName(datFilePath)}\n\n" +
-                                        $"Error: Missing <datafile> root element\n\n" +
-                                        $"File Preview:\n{datFilePreview}";
+                    var detailedError =
+                        $"User attempted to load incompatible DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                        "Error: Missing <datafile> root element\n\n" +
+                        $"File Preview:\n{datFilePreview}";
                     _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
                     ShowIncompatibleDatFileError(errorMsg);
@@ -894,8 +940,10 @@ public partial class ValidatePage : IDisposable
             var serializer = new XmlSerializer(typeof(Datafile));
 
             // Deserialize the DAT file
-            await using var deserializeStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
-            using var xmlReader = XmlReader.Create(deserializeStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
+            await using var deserializeStream =
+                new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+            using var xmlReader = XmlReader.Create(deserializeStream,
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
 
             var datafile = await Task.Run(() => (Datafile?)serializer.Deserialize(xmlReader));
             if (datafile?.Games is null || datafile.Games.Count == 0)
@@ -907,8 +955,9 @@ public partial class ValidatePage : IDisposable
                 LogMessage($"Error: {errorMsg}");
 
                 // Send sample to developer
-                var detailedError = $"User attempted to load empty/invalid DAT file: {Path.GetFileName(datFilePath)}\n\n" +
-                                    $"File Preview:\n{datFilePreview}";
+                var detailedError =
+                    $"User attempted to load empty/invalid DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                    $"File Preview:\n{datFilePreview}";
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
                 ShowIncompatibleDatFileError(errorMsg);
@@ -925,11 +974,12 @@ public partial class ValidatePage : IDisposable
 
             _romDatabase = allRoms
                 .GroupBy(static r => r.Name, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(static g => g.Key, static g => g.ToList());
+                .ToDictionary(static g => g.Key, static g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
             // Check for filename collisions in the DAT (same filename, different hashes)
             var datCollisions = _romDatabase
-                .Where(static kvp => kvp.Value.Select(static r => r.Sha256).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+                .Where(static kvp =>
+                    kvp.Value.Select(static r => r.Sha256).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
                 .ToList();
 
             if (datCollisions.Count > 0)
@@ -943,7 +993,8 @@ public partial class ValidatePage : IDisposable
                     collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"  '{romName}' ({roms.Count} entries):");
                     foreach (var rom in roms)
                     {
-                        collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"    - Size: {rom.Size}, SHA256: {rom.Sha256}");
+                        collisionMessage.AppendLine(CultureInfo.InvariantCulture,
+                            $"    - Size: {rom.Size}, SHA256: {rom.Sha256}");
                     }
 
                     collisionMessage.AppendLine();
@@ -987,10 +1038,11 @@ public partial class ValidatePage : IDisposable
                 LogMessage($"Error: {errorMsg}");
 
                 // Send sample to developer
-                var detailedError = $"User attempted to load DAT file with no ROM entries: {Path.GetFileName(datFilePath)}\n\n" +
-                                    $"Games found: {datafile.Games.Count}\n" +
-                                    $"ROM entries: 0\n\n" +
-                                    $"File Preview:\n{datFilePreview}";
+                var detailedError =
+                    $"User attempted to load DAT file with no ROM entries: {Path.GetFileName(datFilePath)}\n\n" +
+                    $"Games found: {datafile.Games.Count}\n" +
+                    "ROM entries: 0\n\n" +
+                    $"File Preview:\n{datFilePreview}";
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
                 ShowIncompatibleDatFileError(errorMsg);
@@ -1078,7 +1130,7 @@ public partial class ValidatePage : IDisposable
         }
         catch (Exception ex)
         {
-            var errorMsg = $"Unexpected error loading DAT file.\n\n" +
+            var errorMsg = "Unexpected error loading DAT file.\n\n" +
                            $"Error: {ex.Message}\n\n" +
                            "This application only supports No-Intro XML DAT files.\n\n" +
                            "Please ensure you're using a valid No-Intro DAT file from https://no-intro.org/\n\n" +
@@ -1124,7 +1176,8 @@ public partial class ValidatePage : IDisposable
         if (preview.StartsWith("7z\u00BC\u00AF'\u001C", StringComparison.Ordinal)) return "7-Zip archive";
         if (preview.StartsWith("Rar!", StringComparison.Ordinal)) return "RAR archive";
         if (preview.StartsWith("\u001F\u008B", StringComparison.Ordinal)) return "GZIP archive";
-        if (preview.StartsWith("BZh", StringComparison.Ordinal) && preview.Length > 3 && preview[3] >= '1' && preview[3] <= '9') return "BZip2 archive";
+        if (preview.StartsWith("BZh", StringComparison.Ordinal) && preview.Length > 3 && preview[3] >= '1' &&
+            preview[3] <= '9') return "BZip2 archive";
         if (preview.StartsWith("\u00FD7zXZ", StringComparison.Ordinal)) return "XZ archive";
         if (preview.StartsWith("(\u00B5/\u00FD", StringComparison.Ordinal)) return "Zstandard archive";
         if (preview.StartsWith("\u0089PNG", StringComparison.Ordinal)) return "PNG image";
@@ -1190,7 +1243,8 @@ public partial class ValidatePage : IDisposable
             foreach (var gameFile in gameFiles)
             {
                 // Try SHA256 first (most reliable), then SHA1, then MD5, then CRC
-                if (!string.IsNullOrEmpty(gameFile.Sha256) && _romDatabaseBySha256.TryGetValue(gameFile.Sha256, out var romBySha256))
+                if (!string.IsNullOrEmpty(gameFile.Sha256) &&
+                    _romDatabaseBySha256.TryGetValue(gameFile.Sha256, out var romBySha256))
                 {
                     if (romBySha256.Size == gameFile.FileSize)
                     {
@@ -1200,7 +1254,8 @@ public partial class ValidatePage : IDisposable
 
                 token.ThrowIfCancellationRequested();
 
-                if (!string.IsNullOrEmpty(gameFile.Sha1) && _romDatabaseBySha1.TryGetValue(gameFile.Sha1, out var romBySha1))
+                if (!string.IsNullOrEmpty(gameFile.Sha1) &&
+                    _romDatabaseBySha1.TryGetValue(gameFile.Sha1, out var romBySha1))
                 {
                     if (romBySha1.Size == gameFile.FileSize)
                     {
@@ -1210,7 +1265,8 @@ public partial class ValidatePage : IDisposable
 
                 token.ThrowIfCancellationRequested();
 
-                if (!string.IsNullOrEmpty(gameFile.Md5) && _romDatabaseByMd5.TryGetValue(gameFile.Md5, out var romByMd5))
+                if (!string.IsNullOrEmpty(gameFile.Md5) &&
+                    _romDatabaseByMd5.TryGetValue(gameFile.Md5, out var romByMd5))
                 {
                     if (romByMd5.Size == gameFile.FileSize)
                     {
@@ -1220,7 +1276,8 @@ public partial class ValidatePage : IDisposable
 
                 token.ThrowIfCancellationRequested();
 
-                if (!string.IsNullOrEmpty(gameFile.Crc32) && _romDatabaseByCrc.TryGetValue(gameFile.Crc32, out var romByCrc))
+                if (!string.IsNullOrEmpty(gameFile.Crc32) &&
+                    _romDatabaseByCrc.TryGetValue(gameFile.Crc32, out var romByCrc))
                 {
                     if (romByCrc.Size == gameFile.FileSize)
                     {
@@ -1332,7 +1389,8 @@ public partial class ValidatePage : IDisposable
             {
                 LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)}. Error: {ex.Message}");
                 _mainWindow.UpdateStatusBarMessage($"Failed to move {Path.GetFileName(sourcePath)}.");
-                _ = _mainWindow.BugReportService.SendBugReportAsync($"Error moving file from '{sourcePath}' to '{destPath}'", ex);
+                _ = _mainWindow.BugReportService.SendBugReportAsync(
+                    $"Error moving file from '{sourcePath}' to '{destPath}'", ex);
                 return;
             }
         }
@@ -1388,7 +1446,8 @@ public partial class ValidatePage : IDisposable
         }
         catch (Exception initEx)
         {
-            var warning = $"[WARNING] Failed to initialize SevenZipSharp for archive '{archiveFileName}'. Skipping archive processing.";
+            var warning =
+                $"[WARNING] Failed to initialize SevenZipSharp for archive '{archiveFileName}'. Skipping archive processing.";
             LogMessage(warning);
             _ = _mainWindow.BugReportService.SendBugReportAsync(warning, initEx);
             return null;
@@ -1399,18 +1458,20 @@ public partial class ValidatePage : IDisposable
         {
             var uncompressedSize = TempDirectoryHelper.GetArchiveUncompressedSize(archivePath);
             var archiveSize = new FileInfo(archivePath).Length;
-            requiredSpace = uncompressedSize * 2 + archiveSize * 2;
+            requiredSpace = (uncompressedSize * 2) + (archiveSize * 2);
         }
         catch
         {
             requiredSpace = 1024L * 1024 * 1024; // 1GB fallback if size cannot be determined
         }
 
-        var tempDir = TempDirectoryHelper.FindTempDirectoryWithSpace(requiredSpace, archivePath, out var warningMessage);
+        var tempDir =
+            TempDirectoryHelper.FindTempDirectoryWithSpace(requiredSpace, archivePath, out var warningMessage);
         if (tempDir == null)
         {
             _diskSpaceExhausted = true;
-            LogMessage(warningMessage ?? $"[WARNING] Insufficient disk space on all drives for archive '{archiveFileName}'.");
+            LogMessage(warningMessage ??
+                       $"[WARNING] Insufficient disk space on all drives for archive '{archiveFileName}'.");
             _ = _mainWindow.BugReportService.SendBugReportAsync(
                 $"Disk space exhausted on all drives while processing archive '{archiveFileName}' (required: {TempDirectoryHelper.FormatBytes(requiredSpace)})",
                 new InvalidOperationException("No available drive with sufficient space for archive processing."));
@@ -1450,7 +1511,8 @@ public partial class ValidatePage : IDisposable
                 {
                     LogMessage($"   -> FAILED to delete {fileName} after {maxRetries} attempts. Error: {ex.Message}");
                     _mainWindow.UpdateStatusBarMessage($"Failed to delete {fileName}.");
-                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error deleting file '{filePath}' after {maxRetries} attempts", ex);
+                    _ = _mainWindow.BugReportService.SendBugReportAsync(
+                        $"Error deleting file '{filePath}' after {maxRetries} attempts", ex);
                     return;
                 }
 
@@ -1490,13 +1552,15 @@ public partial class ValidatePage : IDisposable
     {
         try
         {
-            var dialog = new OpenFileDialog { Title = "Select the DAT file", Filter = "DAT Files (*.dat)|*.dat|All files (*.*)|*.*" };
+            var dialog = new OpenFileDialog
+                { Title = "Select the DAT file", Filter = "DAT Files (*.dat)|*.dat|All files (*.*)|*.*" };
             if (dialog.ShowDialog() != true) return;
 
             var selectedDatFileName = dialog.FileName;
             DatFileTextBox.Text = selectedDatFileName;
             LogMessage($"DAT file selected: {selectedDatFileName}");
-            _mainWindow.UpdateStatusBarMessage($"DAT file selected: {Path.GetFileName(selectedDatFileName)}. Loading...");
+            _mainWindow.UpdateStatusBarMessage(
+                $"DAT file selected: {Path.GetFileName(selectedDatFileName)}. Loading...");
             await LoadDatFileAsync(selectedDatFileName);
         }
         catch (Exception ex)
@@ -1517,7 +1581,8 @@ public partial class ValidatePage : IDisposable
         catch (Exception ex)
         {
             ShowError($"Unable to open browser to {noIntroUrl}: {ex.Message}");
-            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error opening no-intro.org for DAT files: {noIntroUrl}", ex);
+            _ = _mainWindow.BugReportService.SendBugReportAsync(
+                $"Error opening no-intro.org for DAT files: {noIntroUrl}", ex);
         }
     }
 
@@ -1567,7 +1632,8 @@ public partial class ValidatePage : IDisposable
     private void LogMessage(string message)
     {
         var timestampedMessage = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
-        Application.Current.Dispatcher.InvokeAsync(() =>
+        // Fire-and-forget UI update: intentional, so discard the result (MA0134)
+        _ = Application.Current.Dispatcher.InvokeAsync(() =>
         {
             LogViewer.AppendText($"{timestampedMessage}{Environment.NewLine}");
             LogViewer.ScrollToEnd();
@@ -1608,7 +1674,8 @@ public partial class ValidatePage : IDisposable
 
     private void UpdateStatsDisplay()
     {
-        Application.Current.Dispatcher.InvokeAsync(() =>
+        // Fire-and-forget UI update: intentional, so discard the result (MA0134)
+        _ = Application.Current.Dispatcher.InvokeAsync(() =>
         {
             TotalFilesValue.Text = _totalFilesToProcess.ToString(CultureInfo.InvariantCulture);
             SuccessValue.Text = _successCount.ToString(CultureInfo.InvariantCulture);
@@ -1623,13 +1690,15 @@ public partial class ValidatePage : IDisposable
     private void UpdateProcessingTimeDisplay()
     {
         var elapsed = _operationTimer.Elapsed;
-        Application.Current.Dispatcher.InvokeAsync(() => { ProcessingTimeValue.Text = $@"{elapsed:hh\:mm\:ss}"; });
+        // Fire-and-forget UI update: intentional, so discard the result (MA0134)
+        _ = Application.Current.Dispatcher.InvokeAsync(() => ProcessingTimeValue.Text = $@"{elapsed:hh\:mm\:ss}");
     }
 
     private void UpdateProgressDisplay(int current, int total, string currentFileName)
     {
         var percentage = total == 0 ? 0 : (double)current / total * 100;
-        Application.Current.Dispatcher.InvokeAsync(() =>
+        // Fire-and-forget UI update: intentional, so discard the result (MA0134)
+        _ = Application.Current.Dispatcher.InvokeAsync(() =>
         {
             ProgressText.Text = $"Validating file {current} of {total}: {currentFileName} ({percentage:F1}%)";
             ProgressBar.Value = current;
@@ -1638,7 +1707,8 @@ public partial class ValidatePage : IDisposable
 
     private void ClearDatInfoDisplay()
     {
-        Application.Current.Dispatcher.InvokeAsync(() =>
+        // Fire-and-forget UI update: intentional, so discard the result (MA0134)
+        _ = Application.Current.Dispatcher.InvokeAsync(() =>
         {
             DatNameTextBlock.Text = "N/A";
             DatDescriptionTextBlock.Text = "N/A";
@@ -1676,8 +1746,10 @@ public partial class ValidatePage : IDisposable
         LogMessage($@"Total time: {_operationTimer.Elapsed:hh\:mm\:ss}");
         _mainWindow.UpdateStatusBarMessage("Validation complete.");
 
-        var summaryText = $"Validation complete.\n\nSuccessful: {_successCount}\nFailed: {_failCount}\nUnknown: {_unknownCount}\nRenamed: {_renamedCount}\nDeleted: {_deletedCount}\nDuplicates: {_duplicateCount}";
-        MessageBox.Show(_mainWindow, summaryText, "Validation Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+        var summaryText =
+            $"Validation complete.\n\nSuccessful: {_successCount}\nFailed: {_failCount}\nUnknown: {_unknownCount}\nRenamed: {_renamedCount}\nDeleted: {_deletedCount}\nDuplicates: {_duplicateCount}";
+        MessageBox.Show(_mainWindow, summaryText, "Validation Complete", MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private void ShowError(string message)
@@ -1716,7 +1788,8 @@ public partial class ValidatePage : IDisposable
     /// If the internal filename doesn't match the expected ROM name, renames it.
     /// This is called when the outer archive filename already matches the DAT.
     /// </summary>
-    private async Task FixArchiveInternalFilenamesAsync(string archivePath, List<Rom> expectedRoms, string archiveFileName)
+    private async Task FixArchiveInternalFilenamesAsync(string archivePath, List<Rom> expectedRoms,
+        string archiveFileName)
     {
         var tempDir = PrepareArchiveTempDirectory(archivePath, archiveFileName);
         if (tempDir == null)
@@ -1753,7 +1826,8 @@ public partial class ValidatePage : IDisposable
                 else
                 {
                     LoggerService.LogWarning("FixArchiveInternal", errorMsg + $": {extractEx.Message}");
-                    LogMessage($"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping internal filename check.");
+                    LogMessage(
+                        $"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping internal filename check.");
                 }
 
                 return; // Don't fail the entire operation
@@ -1766,7 +1840,7 @@ public partial class ValidatePage : IDisposable
 
             // Build a mapping of which files need to be renamed
             // Key: original file path, Value: new filename (or null if no change needed)
-            var renameMapping = new Dictionary<string, string?>();
+            var renameMapping = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
             var anyRenameNeeded = false;
 
             foreach (var sourceFile in extractedFiles)
@@ -1806,7 +1880,9 @@ public partial class ValidatePage : IDisposable
             {
                 if (newName != null)
                 {
-                    var newPath = Path.Combine(Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(), newName);
+                    var newPath =
+                        Path.Combine(Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(),
+                            newName);
                     if (File.Exists(newPath))
                     {
                         File.Delete(newPath);
@@ -1838,7 +1914,7 @@ public partial class ValidatePage : IDisposable
                     // SharpSevenZip.CompressFileDictionary expects:
                     //   Key   = archive entry name
                     //   Value = file path on disk
-                    var filesDictionary = new Dictionary<string, string>();
+                    var filesDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                     foreach (var (filePath, entryName) in renamedFilesMapping)
                     {
                         if (File.Exists(filePath))
@@ -1856,7 +1932,8 @@ public partial class ValidatePage : IDisposable
             catch (Exception compressEx)
             {
                 var archiveType = is7ZFile ? "7z" : "zip";
-                var errorMsg = $"Failed to compress {archiveType} archive '{archiveFileName}' after fixing internal filenames";
+                var errorMsg =
+                    $"Failed to compress {archiveType} archive '{archiveFileName}' after fixing internal filenames";
                 LoggerService.LogError("FixArchiveInternal", errorMsg);
                 _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, compressEx);
                 throw new InvalidOperationException($"Archive compression failed: {compressEx.Message}", compressEx);
@@ -1889,7 +1966,9 @@ public partial class ValidatePage : IDisposable
             }
 
             Interlocked.Increment(ref _renamedCount);
-            var actionMessage = isRarFile ? $"[RENAMED INTERNAL + CONVERTED TO ZIP] {archiveFileName}" : $"[RENAMED INTERNAL] {archiveFileName}";
+            var actionMessage = isRarFile
+                ? $"[RENAMED INTERNAL + CONVERTED TO ZIP] {archiveFileName}"
+                : $"[RENAMED INTERNAL] {archiveFileName}";
             LogMessage($"{actionMessage} - Fixed internal filename(s) to match DAT");
         }
         finally
@@ -1917,7 +1996,8 @@ public partial class ValidatePage : IDisposable
             using var sha1 = SHA1.Create();
             using var sha256 = SHA256.Create();
 
-            await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+            await using var fileStream =
+                new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
 
             var buffer = new byte[65536];
             int bytesRead;
@@ -1940,13 +2020,17 @@ public partial class ValidatePage : IDisposable
             var actualSha256 = Convert.ToHexStringLower(sha256.Hash ?? []);
 
             // Check all available hashes
-            if (!string.IsNullOrEmpty(expectedRom.Crc) && !actualCrc32.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(expectedRom.Crc) &&
+                !actualCrc32.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase))
                 return false;
-            if (!string.IsNullOrEmpty(expectedRom.Md5) && !actualMd5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(expectedRom.Md5) &&
+                !actualMd5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase))
                 return false;
-            if (!string.IsNullOrEmpty(expectedRom.Sha1) && !actualSha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(expectedRom.Sha1) &&
+                !actualSha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase))
                 return false;
-            if (!string.IsNullOrEmpty(expectedRom.Sha256) && !actualSha256.Equals(expectedRom.Sha256, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(expectedRom.Sha256) &&
+                !actualSha256.Equals(expectedRom.Sha256, StringComparison.OrdinalIgnoreCase))
                 return false;
 
             return true;
@@ -1969,7 +2053,8 @@ public partial class ValidatePage : IDisposable
         var tempDir = PrepareArchiveTempDirectory(archivePath, archiveFileName);
         if (tempDir == null)
         {
-            throw new InvalidOperationException("Cannot rename file inside archive: insufficient disk space or initialization failed.");
+            throw new InvalidOperationException(
+                "Cannot rename file inside archive: insufficient disk space or initialization failed.");
         }
 
         var is7ZFile = archivePath.EndsWith(".7z", StringComparison.OrdinalIgnoreCase);
@@ -1999,7 +2084,8 @@ public partial class ValidatePage : IDisposable
                 else
                 {
                     LoggerService.LogWarning("RenameInsideArchive", errorMsg + $": {extractEx.Message}");
-                    LogMessage($"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping internal file rename.");
+                    LogMessage(
+                        $"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping internal file rename.");
                 }
 
                 throw new InvalidOperationException($"Archive extraction failed: {extractEx.Message}", extractEx);
@@ -2009,7 +2095,8 @@ public partial class ValidatePage : IDisposable
             var extractedFiles = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
             if (extractedFiles.Length == 0)
             {
-                var errorMsg = $"Archive '{archiveFileName}' is empty or extraction failed - no files found in temp directory";
+                var errorMsg =
+                    $"Archive '{archiveFileName}' is empty or extraction failed - no files found in temp directory";
                 LoggerService.LogWarning("RenameInsideArchive", errorMsg);
                 throw new InvalidOperationException("Archive is empty or extraction failed.");
             }
@@ -2042,7 +2129,8 @@ public partial class ValidatePage : IDisposable
             var renamedFilesMapping = new List<(string OriginalPath, string NewPath)>();
             foreach (var (originalPath, newName) in fileMapping)
             {
-                var newPath = Path.Combine(Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(), newName);
+                var newPath = Path.Combine(Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(),
+                    newName);
 
                 // Only rename if the name is different
                 if (!string.Equals(Path.GetFileName(originalPath), newName, StringComparison.OrdinalIgnoreCase))
@@ -2081,7 +2169,7 @@ public partial class ValidatePage : IDisposable
                     // SharpSevenZip.CompressFileDictionary expects:
                     //   Key   = archive entry name
                     //   Value = file path on disk
-                    var filesDictionary = new Dictionary<string, string>();
+                    var filesDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                     var missingFiles = new List<string>();
                     foreach (var (filePath, entryName) in renamedFilesMapping)
                     {
@@ -2099,12 +2187,13 @@ public partial class ValidatePage : IDisposable
                     {
                         throw new FileNotFoundException(
                             $"Cannot create archive: {missingFiles.Count} file(s) not found in temp directory: {string.Join(", ", missingFiles)}. " +
-                            $"This may indicate the archive structure changed during extraction or files were moved unexpectedly.");
+                            "This may indicate the archive structure changed during extraction or files were moved unexpectedly.");
                     }
 
                     if (filesDictionary.Count == 0)
                     {
-                        throw new InvalidOperationException("No files available to create archive. All extracted files are missing from temp directory.");
+                        throw new InvalidOperationException(
+                            "No files available to create archive. All extracted files are missing from temp directory.");
                     }
 
                     compressor.CompressFileDictionary(filesDictionary, tempArchivePath);
@@ -2113,7 +2202,8 @@ public partial class ValidatePage : IDisposable
             catch (Exception compressEx)
             {
                 var archiveType = is7ZFile ? "7z" : "zip";
-                var errorMsg = $"Failed to compress {archiveType} archive '{archiveFileName}' after renaming internal file";
+                var errorMsg =
+                    $"Failed to compress {archiveType} archive '{archiveFileName}' after renaming internal file";
                 LoggerService.LogError("RenameInsideArchive", errorMsg);
                 _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, compressEx);
                 throw new InvalidOperationException($"Archive compression failed: {compressEx.Message}", compressEx);

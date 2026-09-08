@@ -54,7 +54,8 @@ public class BugReportService : IDisposable
     /// <param name="additionalInfo">Additional information about the error (optional)</param>
     /// <param name="cancellationToken">Cancellation token for the operation</param>
     /// <returns>True if the report was sent successfully, false otherwise</returns>
-    public async Task<bool> SendBugReportAsync(string context, Exception? exception, string? additionalInfo, CancellationToken cancellationToken)
+    public async Task<bool> SendBugReportAsync(string context, Exception? exception, string? additionalInfo,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -83,7 +84,8 @@ public class BugReportService : IDisposable
             {
                 // The API returns a simple JSON with message and id fields
                 var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                return responseContent.Contains("\"message\"", StringComparison.Ordinal) || responseContent.Contains("\"id\"", StringComparison.Ordinal);
+                return responseContent.Contains("\"message\"", StringComparison.Ordinal) ||
+                       responseContent.Contains("\"id\"", StringComparison.Ordinal);
             }
 
             // Silently fail - don't log to avoid recursive bug reports
@@ -171,7 +173,8 @@ public class BugReportService : IDisposable
             sb.AppendLine(CultureInfo.InvariantCulture, $"Message: {currentException.Message}");
             sb.AppendLine(CultureInfo.InvariantCulture, $"Source: {currentException.Source ?? "N/A"}");
             sb.AppendLine(CultureInfo.InvariantCulture, $"StackTrace: {currentException.StackTrace ?? "N/A"}");
-            sb.AppendLine(CultureInfo.InvariantCulture, $"TargetSite: {currentException.TargetSite?.ToString() ?? "N/A"}");
+            sb.AppendLine(CultureInfo.InvariantCulture,
+                $"TargetSite: {currentException.TargetSite?.ToString() ?? "N/A"}");
 
             // Add HResult for Windows-specific errors
             if (currentException.HResult != 0)
@@ -199,10 +202,12 @@ public class BugReportService : IDisposable
             if (innerExceptions.Count > 0)
             {
                 sb.AppendLine();
-                sb.AppendLine(CultureInfo.InvariantCulture, $"--- Aggregate Exception Inner Exceptions ({innerExceptions.Count}) ---");
+                sb.AppendLine(CultureInfo.InvariantCulture,
+                    $"--- Aggregate Exception Inner Exceptions ({innerExceptions.Count}) ---");
                 for (var i = 0; i < innerExceptions.Count; i++)
                 {
-                    sb.AppendLine(CultureInfo.InvariantCulture, $"Inner Exception [{i}]: {innerExceptions[i].GetType().Name} - {innerExceptions[i].Message}");
+                    sb.AppendLine(CultureInfo.InvariantCulture,
+                        $"Inner Exception [{i}]: {innerExceptions[i].GetType().Name} - {innerExceptions[i].Message}");
                 }
             }
         }
@@ -242,7 +247,9 @@ public class BugReportService : IDisposable
                 try
                 {
                     // Try to get the release ID from registry (Windows 10/11)
-                    using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+                    using var key =
+                        Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                            @"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
                     if (key != null)
                     {
                         var releaseId = key.GetValue("ReleaseId")?.ToString();

@@ -29,8 +29,10 @@ public class GitHubVersionChecker : IDisposable
 
         _httpClient = new HttpClient();
         // GitHub API requires a User-Agent header
-        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RomValidator", GetCurrentApplicationVersion()?.ToString() ?? "1.0"));
-        _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
+        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RomValidator",
+            GetCurrentApplicationVersion()?.ToString() ?? "1.0"));
+        _httpClient.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
     }
 
     /// <summary>
@@ -41,7 +43,8 @@ public class GitHubVersionChecker : IDisposable
     /// - ReleaseUrl: The URL to the latest release page
     /// - LatestVersionTag: The version tag of the latest release
     /// </returns>
-    public async Task<(bool IsNewVersionAvailable, string? ReleaseUrl, string? LatestVersionTag)> CheckForNewVersionAsync()
+    public async Task<(bool IsNewVersionAvailable, string? ReleaseUrl, string? LatestVersionTag)>
+        CheckForNewVersionAsync()
     {
         try
         {
@@ -65,7 +68,8 @@ public class GitHubVersionChecker : IDisposable
 
             // Clean the GitHub tag name to be parseable by System.Version
             // e.g., "release_1.0.0" -> "1.0.0", "v1.0.0" -> "1.0.0"
-            var latestVersionTagCleaned = release.TagName.Replace("release_", "", StringComparison.OrdinalIgnoreCase).TrimStart('v');
+            var latestVersionTagCleaned = release.TagName.Replace("release_", "", StringComparison.OrdinalIgnoreCase)
+                .TrimStart('v');
 
             if (Version.TryParse(latestVersionTagCleaned, out var latestVersion))
             {
@@ -76,7 +80,8 @@ public class GitHubVersionChecker : IDisposable
             }
             else
             {
-                LoggerService.LogError("GitHubVersionChecker", $"Could not parse latest version tag '{release.TagName}' from GitHub.");
+                LoggerService.LogError("GitHubVersionChecker",
+                    $"Could not parse latest version tag '{release.TagName}' from GitHub.");
             }
 
             return (false, null, null); // No new version or parsing issue
@@ -86,13 +91,15 @@ public class GitHubVersionChecker : IDisposable
             // Network/SSL/TLS failures are environmental (no connectivity, proxy, or an
             // outdated OS that cannot negotiate a modern TLS handshake). These are not
             // application bugs, so log locally but do not send a bug report.
-            LoggerService.LogWarning("GitHubVersionChecker", $"HTTP request error checking for updates: {httpEx.Message}");
+            LoggerService.LogWarning("GitHubVersionChecker",
+                $"HTTP request error checking for updates: {httpEx.Message}");
             return (false, null, null);
         }
         catch (TaskCanceledException tcEx)
         {
             // Request timed out or was cancelled - also an environmental/connectivity issue.
-            LoggerService.LogWarning("GitHubVersionChecker", $"Update check timed out or was cancelled: {tcEx.Message}");
+            LoggerService.LogWarning("GitHubVersionChecker",
+                $"Update check timed out or was cancelled: {tcEx.Message}");
             return (false, null, null);
         }
         catch (Exception ex)

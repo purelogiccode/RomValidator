@@ -22,7 +22,8 @@ public static class ScreenshotService
         var width = (int)Math.Max(window.ActualWidth * dpi.DpiScaleX, 1);
         var height = (int)Math.Max(window.ActualHeight * dpi.DpiScaleY, 1);
 
-        var renderTarget = new RenderTargetBitmap(width, height, dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
+        var renderTarget =
+            new RenderTargetBitmap(width, height, dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
         renderTarget.Render(window);
 
         var encoder = new PngBitmapEncoder();

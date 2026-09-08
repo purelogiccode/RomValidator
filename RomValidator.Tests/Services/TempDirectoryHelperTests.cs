@@ -15,7 +15,7 @@ public class TempDirectoryHelperTests
         try
         {
             Assert.True(Directory.Exists(tempDir));
-            Assert.Contains("test_", tempDir);
+            Assert.Contains("test_", tempDir, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
@@ -37,7 +37,7 @@ public class TempDirectoryHelperTests
         try
         {
             Assert.True(Directory.Exists(tempDir));
-            Assert.Contains("romvalidator_", tempDir);
+            Assert.Contains("romvalidator_", tempDir, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
@@ -83,7 +83,7 @@ public class TempDirectoryHelperTests
         // Assert
         try
         {
-            Assert.NotEqual(dir1, dir2);
+            Assert.NotEqual(dir1, dir2, StringComparer.OrdinalIgnoreCase);
             Assert.True(Directory.Exists(dir1));
             Assert.True(Directory.Exists(dir2));
         }

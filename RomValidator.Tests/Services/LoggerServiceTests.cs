@@ -34,7 +34,8 @@ public class LoggerServiceTests
     {
         // Act & Assert
         var testException = new InvalidOperationException("Test exception");
-        var exception = Record.Exception(() => LoggerService.LogException("TestComponent", testException, "Test context"));
+        var exception =
+            Record.Exception(() => LoggerService.LogException("TestComponent", testException, "Test context"));
         Assert.Null(exception);
     }
 
@@ -42,8 +43,10 @@ public class LoggerServiceTests
     public void LogExceptionWithNullContextDoesNotThrow()
     {
         // Act & Assert
-        // ReSharper disable once NotResolvedInText
-        var testException = new ArgumentNullException("param");
+        // Synthetic exception instance for the logging test; no real parameter exists in scope
+#pragma warning disable MA0015 // Use an overload of 'System.ArgumentNullException' with the parameter name
+        var testException = new ArgumentNullException();
+#pragma warning restore MA0015
         var exception = Record.Exception(() => LoggerService.LogException("TestComponent", testException));
         Assert.Null(exception);
     }

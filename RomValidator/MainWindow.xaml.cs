@@ -36,7 +36,8 @@ public partial class MainWindow : IDisposable
 
         // Reuse the BugReportService from App to avoid duplicate HttpClient instances
         BugReportService = ((App)Application.Current).GetBugReportService()
-                           ?? throw new InvalidOperationException("BugReportService must be initialized before MainWindow.");
+                           ?? throw new InvalidOperationException(
+                               "BugReportService must be initialized before MainWindow.");
 
         VersionChecker = new GitHubVersionChecker("purelogiccode", "RomValidator", BugReportService);
 
@@ -94,7 +95,8 @@ public partial class MainWindow : IDisposable
         {
             // Log the exception but don't crash the application
             Debug.WriteLine($"Error updating status bar: {ex.Message}");
-            _ = BugReportService.SendBugReportAsync("Error updating status bar", ex);
+            _ = BugReportService.SendBugReportAsync("Error updating status bar", ex,
+                additionalInfo: null, cancellationToken: cancellationToken);
         }
     }
 

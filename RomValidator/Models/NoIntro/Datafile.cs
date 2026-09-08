@@ -17,7 +17,8 @@ public class Datafile
     // Schema location attribute
     /// <summary>Gets or sets the XML schema location for validation.</summary>
     [XmlAttribute("schemaLocation", Namespace = "http://www.w3.org/2001/XMLSchema-instance")]
-    public string SchemaLocation { get; set; } = "https://datomatic.no-intro.org/stuff https://datomatic.no-intro.org/stuff/schema_nointro_datfile_v3.xsd";
+    public string SchemaLocation { get; set; } =
+        "https://datomatic.no-intro.org/stuff https://datomatic.no-intro.org/stuff/schema_nointro_datfile_v3.xsd";
 
     /// <summary>Gets or sets the header information for the DAT file.</summary>
     [XmlElement("header")]

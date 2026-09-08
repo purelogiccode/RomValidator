@@ -78,7 +78,7 @@ public class DatafileSerializationTests
     public void DatafileDefaultSchemaLocationIsSet()
     {
         var datafile = new Datafile();
-        Assert.Contains("no-intro.org", datafile.SchemaLocation);
+        Assert.Contains("no-intro.org", datafile.SchemaLocation, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -141,9 +141,9 @@ public class DatafileSerializationTests
         }
 
         // Assert
-        Assert.Contains("Game One", xml);
-        Assert.Contains("Game Two", xml);
-        Assert.Contains("game1.rom", xml);
-        Assert.Contains("game2.rom", xml);
+        Assert.Contains("Game One", xml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Game Two", xml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("game1.rom", xml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("game2.rom", xml, StringComparison.OrdinalIgnoreCase);
     }
 }

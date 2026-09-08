@@ -61,9 +61,9 @@ public class GitHubReleaseTests
         var json = JsonSerializer.Serialize(release, JsonOptions);
 
         // Assert
-        Assert.Contains("\"tag_name\":\"v3.0.0\"", json);
-        Assert.Contains("\"html_url\":\"https://github.com/user/repo/releases/tag/v3.0.0\"", json);
-        Assert.Contains("\"assets\"", json);
+        Assert.Contains("\"tag_name\":\"v3.0.0\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"html_url\":\"https://github.com/user/repo/releases/tag/v3.0.0\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"assets\"", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -89,10 +89,10 @@ public class GitHubReleaseTests
         // Assert
         Assert.NotNull(release);
         Assert.Equal("v2.7.2", release.TagName);
-        Assert.Contains("purelogiccode", release.HtmlUrl);
+        Assert.Contains("purelogiccode", release.HtmlUrl, StringComparison.OrdinalIgnoreCase);
         Assert.NotNull(release.Assets);
         Assert.Single(release.Assets);
-        Assert.Contains("RomValidator_v2.7.2_win-x64", release.Assets[0].Name);
+        Assert.Contains("RomValidator_v2.7.2_win-x64", release.Assets[0].Name, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

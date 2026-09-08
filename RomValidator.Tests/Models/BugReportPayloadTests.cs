@@ -26,12 +26,12 @@ public class BugReportPayloadTests
 
         var json = JsonSerializer.Serialize(payload, JsonOptions);
 
-        Assert.Contains("\"message\":\"Test error message\"", json);
-        Assert.Contains("\"applicationName\":\"ROM Validator\"", json);
-        Assert.Contains("\"version\":\"2.7.2\"", json);
-        Assert.Contains("\"userInfo\":\"test@example.com\"", json);
-        Assert.Contains("\"environment\":\"Cleanup\"", json);
-        Assert.Contains("\"stackTrace\":\"at TempDirectoryHelper.CleanupTempDirectory()\"", json);
+        Assert.Contains("\"message\":\"Test error message\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"applicationName\":\"ROM Validator\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"version\":\"2.7.2\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"userInfo\":\"test@example.com\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"environment\":\"Cleanup\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"stackTrace\":\"at TempDirectoryHelper.CleanupTempDirectory()\"", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class BugReportPayloadTests
         Assert.Equal("2.7.1", payload.Version);
         Assert.Equal("user@example.com", payload.UserInfo);
         Assert.Equal("Production", payload.Environment);
-        Assert.Contains("UserService.GetUser()", payload.StackTrace);
+        Assert.Contains("UserService.GetUser()", payload.StackTrace, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

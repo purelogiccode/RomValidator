@@ -17,17 +17,22 @@ namespace RomValidator.Pages;
 
 public partial class GenerateDatPage : IDisposable
 {
+    // Maximum time a regex match is allowed to run before timing out
+    private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(2);
+
     // Compiled regex for sanitizing filenames (Issue C fix)
-    private static readonly Regex InvalidFileNameCharsRegex = new($"[{Regex.Escape(new string(Path.GetInvalidFileNameChars()))}]", RegexOptions.Compiled);
+    private static readonly Regex InvalidFileNameCharsRegex =
+        new($"[{Regex.Escape(new string(Path.GetInvalidFileNameChars()))}]", RegexOptions.Compiled, RegexMatchTimeout);
+
     private const int MaxUiDisplayItems = 500; // Limit UI list size to prevent lag (Issue 8 fix)
 
     private readonly MainWindow _mainWindow;
     private CancellationTokenSource? _cts;
-    private readonly object _ctsLock = new();
+    private readonly Lock _ctsLock = new();
     private readonly ObservableCollection<GameFile> _fileDataCollection = [];
     private readonly List<GameFile> _processedFilesList = [];
     private int _processedFileCount;
-    private readonly object _operationLock = new();
+    private readonly Lock _operationLock = new();
 
     // Batching for UI updates (Issue A fix)
     private readonly List<GameFile> _uiUpdateBuffer = [];
@@ -85,7 +90,8 @@ public partial class GenerateDatPage : IDisposable
         {
             if (string.IsNullOrEmpty(FolderTextBox.Text) || !Directory.Exists(FolderTextBox.Text))
             {
-                MessageBox.Show(_mainWindow, "Please select a valid folder first.", "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(_mainWindow, "Please select a valid folder first.", "Invalid Folder",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -134,13 +140,15 @@ public partial class GenerateDatPage : IDisposable
 
             if (!operationCts.IsCancellationRequested)
             {
-                MessageBox.Show(_mainWindow, $"Hashing complete! {_processedFileCount} files processed.", "Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(_mainWindow, $"Hashing complete! {_processedFileCount} files processed.", "Complete",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
                 lock (_operationLock)
                 {
                     ExportDatButton.IsEnabled = _processedFilesList.Count > 0;
                 }
 
-                await _mainWindow.UpdateStatusBarMessageAsync($"Hashing complete. {_processedFileCount} files processed.", operationCts.Token);
+                await _mainWindow.UpdateStatusBarMessageAsync(
+                    $"Hashing complete. {_processedFileCount} files processed.", operationCts.Token);
 
                 // Automatically trigger save dialog after hash calculation
                 lock (_operationLock)
@@ -154,22 +162,28 @@ public partial class GenerateDatPage : IDisposable
             }
             else
             {
-                MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 ExportDatButton.IsEnabled = false;
                 await _mainWindow.UpdateStatusBarMessageAsync("Hashing cancelled.", operationCts.Token);
             }
         }
         catch (OperationCanceledException)
         {
-            MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK,
+                MessageBoxImage.Information);
             ExportDatButton.IsEnabled = false;
-            if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Hashing cancelled.", operationCts.Token);
+            if (operationCts != null)
+                await _mainWindow.UpdateStatusBarMessageAsync("Hashing cancelled.", operationCts.Token);
         }
         catch (Exception ex)
         {
-            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error during hashing operation for folder: {FolderTextBox.Text}", ex);
-            MessageBox.Show(_mainWindow, $"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Error during hashing.", operationCts.Token);
+            _ = _mainWindow.BugReportService.SendBugReportAsync(
+                $"Error during hashing operation for folder: {FolderTextBox.Text}", ex);
+            MessageBox.Show(_mainWindow, $"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            if (operationCts != null)
+                await _mainWindow.UpdateStatusBarMessageAsync("Error during hashing.", operationCts.Token);
         }
         finally
         {
@@ -239,7 +253,8 @@ public partial class GenerateDatPage : IDisposable
         }
     }
 
-    private async Task HashFilesAsync(string folderPath, IProgress<GameFile> progress, CancellationToken cancellationToken)
+    private async Task HashFilesAsync(string folderPath, IProgress<GameFile> progress,
+        CancellationToken cancellationToken)
     {
         var totalRomCount = 0;
         _discoveredFilesCount = 0;
@@ -256,12 +271,16 @@ public partial class GenerateDatPage : IDisposable
         {
             IgnoreInaccessible = true,
             RecurseSubdirectories = false, // Changed to false for top directory only
-            AttributesToSkip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint // Skip cloud-only placeholders (e.g. OneDrive)
+            AttributesToSkip =
+                FileAttributes.Hidden | FileAttributes.System |
+                FileAttributes.ReparsePoint // Skip cloud-only placeholders (e.g. OneDrive)
         };
 
         // Start a background task to count files so we can estimate progress bar Max
         // The actual Maximum will be set atomically in the main loop (Issue 2 & 3 fix)
-        _ = Task.Run(() => CountFilesInBackground(folderPath, enumerationOptions, ref _discoveredFilesCount, cancellationToken, _mainWindow.BugReportService), cancellationToken);
+        _ = Task.Run(
+            () => CountFilesInBackground(folderPath, enumerationOptions, ref _discoveredFilesCount, cancellationToken,
+                _mainWindow.BugReportService), cancellationToken);
 
         // Stream the files using EnumerationOptions to skip inaccessible items (Issue 4 fix)
         var fileEnumerable = Directory.EnumerateFiles(folderPath, "*", enumerationOptions);
@@ -271,7 +290,8 @@ public partial class GenerateDatPage : IDisposable
         {
             if (cancellationToken.IsCancellationRequested) break;
 
-            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, cancellationToken, _mainWindow.BugReportService);
+            var gameFiles =
+                await HashCalculator.CalculateHashesAsync(filePath, cancellationToken, _mainWindow.BugReportService);
             var romsFromFile = gameFiles.Count;
 
             // Read the discovered count from the background task (do NOT increment here —
@@ -293,10 +313,7 @@ public partial class GenerateDatPage : IDisposable
             {
                 lastUiUpdate = now;
                 var newMaximum = currentDiscovered + currentExpansion;
-                await Dispatcher.InvokeAsync(() =>
-                {
-                    HashProgressBar.Maximum = newMaximum;
-                });
+                await Dispatcher.InvokeAsync(() => HashProgressBar.Maximum = newMaximum);
             }
 
             foreach (var gameFile in gameFiles)
@@ -308,40 +325,43 @@ public partial class GenerateDatPage : IDisposable
                     // (corrupt/unsupported archives, cloud-only placeholders, locked files)
                     // as these are not application bugs.
                     if (!gameFile.IsUserError &&
-                        !string.Equals(gameFile.ErrorMessage, "File is locked or access denied after retries", StringComparison.Ordinal))
+                        !string.Equals(gameFile.ErrorMessage, "File is locked or access denied after retries",
+                            StringComparison.Ordinal))
                     {
-                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}", null, null, cancellationToken);
+                        _ = _mainWindow.BugReportService.SendBugReportAsync(
+                            $"Error hashing file {filePath}: {gameFile.ErrorMessage}", null, null, cancellationToken);
                     }
                 }
                 else if (!string.IsNullOrEmpty(gameFile.Sha256))
                 {
-                        // Check for duplicates (same hash, different filename)
-                        lock (hashToFilenames)
+                    // Check for duplicates (same hash, different filename)
+                    lock (hashToFilenames)
+                    {
+                        if (!hashToFilenames.TryGetValue(gameFile.Sha256, out var filenames))
                         {
-                            if (!hashToFilenames.TryGetValue(gameFile.Sha256, out var filenames))
+                            filenames = new List<string>();
+                            hashToFilenames[gameFile.Sha256] = filenames;
+                        }
+
+                        // Only add if not already in list (case-insensitive)
+                        if (!filenames.Any(f =>
+                                string.Equals(f, gameFile.FileName, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            filenames.Add(gameFile.FileName);
+
+                            // If we have more than one filename for this hash, log a warning
+                            if (filenames.Count == 2) // First time we detect a duplicate for this hash
                             {
-                                filenames = new List<string>();
-                                hashToFilenames[gameFile.Sha256] = filenames;
+                                duplicateGroups++;
                             }
 
-                            // Only add if not already in list (case-insensitive)
-                            if (!filenames.Any(f => string.Equals(f, gameFile.FileName, StringComparison.OrdinalIgnoreCase)))
+                            if (filenames.Count > 1)
                             {
-                                filenames.Add(gameFile.FileName);
-
-                                // If we have more than one filename for this hash, log a warning
-                                if (filenames.Count == 2) // First time we detect a duplicate for this hash
-                                {
-                                    duplicateGroups++;
-                                }
-
-                                if (filenames.Count > 1)
-                                {
-                                    LoggerService.LogWarning("DAT Generation",
-                                        $"Duplicate ROM detected: Hash {gameFile.Sha256} has multiple filenames: {string.Join(", ", filenames)}");
-                                }
+                                LoggerService.LogWarning("DAT Generation",
+                                    $"Duplicate ROM detected: Hash {gameFile.Sha256} has multiple filenames: {string.Join(", ", filenames)}");
                             }
                         }
+                    }
                 }
 
                 lock (_operationLock)
@@ -364,7 +384,7 @@ public partial class GenerateDatPage : IDisposable
                 // Filter to only include hashes with multiple filenames
                 var duplicateHashToFilenames = hashToFilenames
                     .Where(static kvp => kvp.Value.Count > 1)
-                    .ToDictionary(static kvp => kvp.Key, static kvp => kvp.Value);
+                    .ToDictionary(static kvp => kvp.Key, static kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
 
                 var duplicateWindow = new DuplicateFilesWindow
                 {
@@ -389,7 +409,8 @@ public partial class GenerateDatPage : IDisposable
             {
                 if (_processedFilesList.Count == 0)
                 {
-                    MessageBox.Show(_mainWindow, "No files have been processed to export.", "No Data", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(_mainWindow, "No files have been processed to export.", "No Data",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
             }
@@ -434,30 +455,35 @@ public partial class GenerateDatPage : IDisposable
                 var filenameCollisions = filesToExport
                     .Where(static file => file.ErrorMessage == null)
                     .GroupBy(static file => file.FileName, StringComparer.OrdinalIgnoreCase)
-                    .Where(static group => group.Select(static f => f.Sha256).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+                    .Where(static group =>
+                        group.Select(static f => f.Sha256).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
                     .ToList();
 
                 if (filenameCollisions.Count > 0)
                 {
                     var collisionMessage = new StringBuilder();
                     collisionMessage.AppendLine("WARNING: Filename collisions detected!");
-                    collisionMessage.AppendLine("The following ROM filenames have multiple different ROMs (different hashes):");
+                    collisionMessage.AppendLine(
+                        "The following ROM filenames have multiple different ROMs (different hashes):");
                     collisionMessage.AppendLine();
                     foreach (var collision in filenameCollisions)
                     {
                         collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"  '{collision.Key}':");
                         foreach (var file in collision)
                         {
-                            collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"    - From: {file.ArchiveFileName ?? "(loose file)"}");
+                            collisionMessage.AppendLine(CultureInfo.InvariantCulture,
+                                $"    - From: {file.ArchiveFileName ?? "(loose file)"}");
                             collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"      SHA256: {file.Sha256}");
                         }
 
                         collisionMessage.AppendLine();
                     }
 
-                    collisionMessage.AppendLine("These files will overwrite each other in the DAT. Consider renaming them.");
+                    collisionMessage.AppendLine(
+                        "These files will overwrite each other in the DAT. Consider renaming them.");
 
-                    _mainWindow.UpdateStatusBarMessage($"Warning: {filenameCollisions.Count} filename collision(s) detected!");
+                    _mainWindow.UpdateStatusBarMessage(
+                        $"Warning: {filenameCollisions.Count} filename collision(s) detected!");
                     MessageBox.Show(_mainWindow, collisionMessage.ToString(), "Filename Collisions Detected",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
@@ -468,7 +494,7 @@ public partial class GenerateDatPage : IDisposable
                 // Group files by GameName to create proper No-Intro DAT format
                 dataFile.Games.AddRange(filesToExport
                     .Where(static file => file.ErrorMessage == null)
-                    .GroupBy(static file => file.GameName)
+                    .GroupBy(static file => file.GameName, StringComparer.OrdinalIgnoreCase)
                     .Select(static group => new Game
                     {
                         Name = group.Key,
@@ -485,7 +511,8 @@ public partial class GenerateDatPage : IDisposable
                     }));
 
                 var serializer = new XmlSerializer(typeof(Datafile));
-                var settings = new XmlWriterSettings { Indent = true, IndentChars = "\t", Encoding = new UTF8Encoding(false), Async = true };
+                var settings = new XmlWriterSettings
+                    { Indent = true, IndentChars = "\t", Encoding = new UTF8Encoding(false), Async = true };
 
                 _mainWindow.UpdateStatusBarMessage("Serializing and saving DAT file...");
                 await using var writer = XmlWriter.Create(saveFileDialog.FileName, settings);
@@ -498,7 +525,8 @@ public partial class GenerateDatPage : IDisposable
                     serializer.Serialize(writer, dataFile, namespaces);
                 }); // Offload sync serialization (Issue 12 fix)
 
-                var result = MessageBox.Show(_mainWindow, "DAT file exported successfully! Would you like to open it?", "Export Complete", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                var result = MessageBox.Show(_mainWindow, "DAT file exported successfully! Would you like to open it?",
+                    "Export Complete", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (result == MessageBoxResult.Yes)
                 {
                     Process.Start(new ProcessStartInfo { FileName = saveFileDialog.FileName, UseShellExecute = true });
@@ -507,13 +535,15 @@ public partial class GenerateDatPage : IDisposable
             catch (Exception ex)
             {
                 _ = _mainWindow.BugReportService.SendBugReportAsync("Error exporting DAT file.", ex);
-                MessageBox.Show(_mainWindow, $"Error exporting file: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(_mainWindow, $"Error exporting file: {ex.Message}", "Export Error", MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
         catch (Exception ex)
         {
             _ = _mainWindow.BugReportService.SendBugReportAsync("Error exporting DAT file.", ex);
-            MessageBox.Show(_mainWindow, $"Error exporting file: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(_mainWindow, $"Error exporting file: {ex.Message}", "Export Error", MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -586,7 +616,8 @@ public partial class GenerateDatPage : IDisposable
         ExportDatButton.IsEnabled = false;
     }
 
-    private static void CountFilesInBackground(string folderPath, EnumerationOptions options, ref int counter, CancellationToken cancellationToken, BugReportService? bugReportService = null)
+    private static void CountFilesInBackground(string folderPath, EnumerationOptions options, ref int counter,
+        CancellationToken cancellationToken, BugReportService? bugReportService = null)
     {
         try
         {

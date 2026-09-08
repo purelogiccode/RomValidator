@@ -10,9 +10,9 @@ namespace RomValidator.Services;
 public static class TempDirectoryHelper
 {
     private static readonly HashSet<string> TrackedDirectories = [];
-    private static readonly object TrackLock = new();
+    private static readonly Lock TrackLock = new();
     private static readonly HashSet<string> PendingBackgroundRetries = [];
-    private static readonly object RetryLock = new();
+    private static readonly Lock RetryLock = new();
     private static Timer? _backgroundRetryTimer;
 
     static TempDirectoryHelper()
@@ -145,7 +145,8 @@ public static class TempDirectoryHelper
         {
             if (!PendingBackgroundRetries.Add(path) && _backgroundRetryTimer != null) return;
 
-            _backgroundRetryTimer ??= new Timer(BackgroundRetryCallback, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+            _backgroundRetryTimer ??= new Timer(BackgroundRetryCallback, null, TimeSpan.FromSeconds(30),
+                TimeSpan.FromSeconds(30));
         }
     }
 
@@ -304,7 +305,8 @@ public static class TempDirectoryHelper
             return CreateTempDirectory();
         }
 
-        warning = $"[WARNING] Default temp drive ({Path.GetPathRoot(defaultTemp)}) has insufficient space ({FormatBytes(defaultSpace ?? 0)} available, {FormatBytes(requiredBytes)} required).";
+        warning =
+            $"[WARNING] Default temp drive ({Path.GetPathRoot(defaultTemp)}) has insufficient space ({FormatBytes(defaultSpace ?? 0)} available, {FormatBytes(requiredBytes)} required).";
 
         // 2. Try the drive where the context file is located
         var contextDrive = Path.GetPathRoot(contextPath);
@@ -318,7 +320,8 @@ public static class TempDirectoryHelper
                 return dir;
             }
 
-            warning += $" Context drive ({contextDrive}) also has insufficient space ({FormatBytes(contextSpace ?? 0)} available).";
+            warning +=
+                $" Context drive ({contextDrive}) also has insufficient space ({FormatBytes(contextSpace ?? 0)} available).";
         }
 
         // 3. Try all other ready drives

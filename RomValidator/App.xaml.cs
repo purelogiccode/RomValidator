@@ -112,7 +112,8 @@ public partial class App
                 // Log the error as an exception so the full details are forwarded to the
                 // bug report API through the Serilog sink.
                 var missingDllException = new FileNotFoundException(errorMessage, libraryPath);
-                LoggerService.LogException("MissingSevenZipDll", missingDllException, "The 7z native library DLL is missing from the application installation");
+                LoggerService.LogException("MissingSevenZipDll", missingDllException,
+                    "The 7z native library DLL is missing from the application installation");
 
                 // Show user-friendly error dialog
                 ShowMissingSevenZipDllDialog(libraryPath, architectureName);
@@ -132,12 +133,13 @@ public partial class App
     {
         try
         {
-            var dialogMessage = $"The required 7-Zip library (7z_{architectureName}.dll) is missing from the application.\n\n" +
-                                "This file is essential for the application to work with archive files.\n\n" +
-                                "Missing file location:\n" +
-                                missingLibraryPath + "\n\n" +
-                                "Please reinstall the application to fix this issue.\n\n" +
-                                "If the problem persists, please contact support.";
+            var dialogMessage =
+                $"The required 7-Zip library (7z_{architectureName}.dll) is missing from the application.\n\n" +
+                "This file is essential for the application to work with archive files.\n\n" +
+                "Missing file location:\n" +
+                missingLibraryPath + "\n\n" +
+                "Please reinstall the application to fix this issue.\n\n" +
+                "If the problem persists, please contact support.";
 
             MessageBox.Show(
                 dialogMessage,
@@ -186,15 +188,17 @@ public partial class App
                 .MinimumLevel.Debug()
                 .Enrich.FromLogContext()
                 .WriteTo.Debug(
-                    outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] {Level:u3} [{Component}] {Message:lj}{NewLine}{Exception}",
+                    outputTemplate:
+                    "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] {Level:u3} [{Component}] {Message:lj}{NewLine}{Exception}",
                     formatProvider: CultureInfo.InvariantCulture)
                 .WriteTo.File(
                     logFilePath,
-                    outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] {Level:u3} [{Component}] {Message:lj}{NewLine}{Exception}",
+                    outputTemplate:
+                    "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] {Level:u3} [{Component}] {Message:lj}{NewLine}{Exception}",
                     formatProvider: CultureInfo.InvariantCulture,
+                    shared: true,
                     rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 7,
-                    shared: true);
+                    retainedFileCountLimit: 7);
 
             // Forward Error+ events to the bug report API through the custom sink
             if (_bugReportService != null)
@@ -277,7 +281,8 @@ public partial class App
                 {
                     if (t.IsFaulted)
                     {
-                        LoggerService.LogError("Startup", $"Stats recording failed: {t.Exception?.InnerException?.Message}");
+                        LoggerService.LogError("Startup",
+                            $"Stats recording failed: {t.Exception?.InnerException?.Message}");
                     }
                 }, TaskContinuationOptions.OnlyOnFaulted);
             }
@@ -325,12 +330,14 @@ public partial class App
                 var isTerminating = e.IsTerminating ? "Application will terminate" : "Application continuing";
 
                 // Log the exception (forwarded to the bug report API via the Serilog sink)
-                LoggerService.LogException("GlobalAppDomainException", ex, $"Unhandled exception in non-UI thread. {isTerminating}");
+                LoggerService.LogException("GlobalAppDomainException", ex,
+                    $"Unhandled exception in non-UI thread. {isTerminating}");
 
                 // If the application is terminating, show a fatal error dialog
                 if (e.IsTerminating)
                 {
-                    ShowFatalErrorDialog(ex, "A fatal error occurred in the application. The application will now close.");
+                    ShowFatalErrorDialog(ex,
+                        "A fatal error occurred in the application. The application will now close.");
                 }
             }
         }
@@ -370,7 +377,8 @@ public partial class App
     {
         try
         {
-            var dialogMessage = $"{message}\n\nError: {ex.Message}\n\nType: {ex.GetType().Name}\n\nThe error details have been sent for analysis.";
+            var dialogMessage =
+                $"{message}\n\nError: {ex.Message}\n\nType: {ex.GetType().Name}\n\nThe error details have been sent for analysis.";
 
             MessageBox.Show(
                 dialogMessage,

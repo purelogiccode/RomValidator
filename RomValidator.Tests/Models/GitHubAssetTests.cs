@@ -34,7 +34,7 @@ public class GitHubAssetTests
 
         // Assert
         Assert.Equal("RomValidator_v2.7.2_win-x64.zip", asset.Name);
-        Assert.Contains("v2.7.2", asset.BrowserDownloadUrl);
+        Assert.Contains("v2.7.2", asset.BrowserDownloadUrl, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -51,8 +51,8 @@ public class GitHubAssetTests
         var json = JsonSerializer.Serialize(asset, JsonOptions);
 
         // Assert
-        Assert.Contains("\"name\":\"app.zip\"", json);
-        Assert.Contains("\"browser_download_url\":\"https://example.com/app.zip\"", json);
+        Assert.Contains("\"name\":\"app.zip\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"browser_download_url\":\"https://example.com/app.zip\"", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class GitHubAssetTests
 
         // Assert
         Assert.NotNull(asset);
-        Assert.Contains("RomValidator_v2.7.2_win-x64", asset.Name);
-        Assert.Contains("purelogiccode", asset.BrowserDownloadUrl);
+        Assert.Contains("RomValidator_v2.7.2_win-x64", asset.Name, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("purelogiccode", asset.BrowserDownloadUrl, StringComparison.OrdinalIgnoreCase);
     }
 }

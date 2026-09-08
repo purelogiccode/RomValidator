@@ -76,7 +76,7 @@ public class RomTests
     {
         // Arrange
         var rom = new Rom { SizeString = sizeString };
-        expectedSizeString ??= expectedSize.ToString();
+        expectedSizeString ??= expectedSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         // Assert
         Assert.Equal(expectedSize, rom.Size);
