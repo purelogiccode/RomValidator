@@ -718,6 +718,21 @@ public partial class ValidatePage : IDisposable
 
             // Quick check for common incompatible formats - MUST happen before XML parsing
 
+            // 0. Check for an empty file (e.g. a failed/truncated download). This is a
+            // user-input/environment issue, not an app bug, so no bug report is sent.
+            if (new FileInfo(datFilePath).Length == 0)
+            {
+                const string errorMsg = "The selected DAT file is empty (0 bytes).\n\n" +
+                                        "This usually means the download failed or was interrupted.\n\n" +
+                                        "Please re-download a valid No-Intro XML DAT file from https://no-intro.org/";
+                LogMessage($"Error: {errorMsg}");
+
+                ShowIncompatibleDatFileError(errorMsg);
+                ClearRomDatabase();
+                _mainWindow.UpdateStatusBarMessage("DAT file is empty.");
+                return false;
+            }
+
             // 1. Check for ZIP format (magic number "PK")
             if (datFilePreview.StartsWith("PK", StringComparison.Ordinal))
             {
@@ -1109,6 +1124,9 @@ public partial class ValidatePage : IDisposable
         if (preview.StartsWith("7z\u00BC\u00AF'\u001C", StringComparison.Ordinal)) return "7-Zip archive";
         if (preview.StartsWith("Rar!", StringComparison.Ordinal)) return "RAR archive";
         if (preview.StartsWith("\u001F\u008B", StringComparison.Ordinal)) return "GZIP archive";
+        if (preview.StartsWith("BZh", StringComparison.Ordinal) && preview.Length > 3 && preview[3] >= '1' && preview[3] <= '9') return "BZip2 archive";
+        if (preview.StartsWith("\u00FD7zXZ", StringComparison.Ordinal)) return "XZ archive";
+        if (preview.StartsWith("(\u00B5/\u00FD", StringComparison.Ordinal)) return "Zstandard archive";
         if (preview.StartsWith("\u0089PNG", StringComparison.Ordinal)) return "PNG image";
         if (preview.StartsWith("%PDF", StringComparison.Ordinal)) return "PDF document";
         if (preview.StartsWith("NES\u001A", StringComparison.Ordinal)) return "NES ROM";
@@ -1118,7 +1136,9 @@ public partial class ValidatePage : IDisposable
 
     /// <summary>
     /// Heuristically determines whether the file preview is binary rather than text,
-    /// by checking for a high proportion of NUL / non-printable control characters.
+    /// by checking for a high proportion of NUL / non-printable control characters
+    /// and non-ASCII bytes. Compressed/binary DAT files (e.g. RetroAchievements.dat)
+    /// contain many bytes >= 0x80 that are not control characters, so both are counted.
     /// Used to avoid reporting binary files as XML parsing bugs.
     /// </summary>
     private static bool LooksLikeBinaryContent(string? preview)
@@ -1137,6 +1157,14 @@ public partial class ValidatePage : IDisposable
 
             // Count non-whitespace control characters
             if (char.IsControl(c) && c != '\r' && c != '\n' && c != '\t')
+            {
+                controlCount++;
+                continue;
+            }
+
+            // Count non-ASCII bytes (No-Intro XML DATs are overwhelmingly ASCII;
+            // the rare UTF-8 accented characters stay far below this threshold)
+            if (c > '\u007E')
             {
                 controlCount++;
             }

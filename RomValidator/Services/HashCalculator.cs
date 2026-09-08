@@ -22,6 +22,7 @@ public static partial class HashCalculator
     private const int BufferSize = 65536; // 64KB buffer for file operations
     private const int InitialRetryDelayMs = 100; // Initial delay for retry attempts in milliseconds
     private const int ErrorDiskFull = unchecked((int)0x80070070);
+    private const int ErrorCrc = unchecked((int)0x80070017); // Win32 ERROR_CRC (23): unreadable data / bad sectors
     private const long MemoryStreamThreshold = 256L * 1024 * 1024; // 256 MB — above this, use temp file
 
     /// <summary>
@@ -452,6 +453,18 @@ public static partial class HashCalculator
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (IOException ex) when (ex.HResult == ErrorCrc)
+            {
+                // Win32 ERROR_CRC: the data cannot be read from the medium (bad sectors,
+                // corrupted file, failing disk). Retrying will not help and this is a
+                // user hardware/environment issue, not an app bug — no bug report.
+                gameFile.ErrorMessage = "The file cannot be read: data error (CRC). The file or the disk it is stored on may be corrupted.";
+                gameFile.Crc32 = "ERROR";
+                gameFile.Md5 = "ERROR";
+                gameFile.Sha1 = "ERROR";
+                gameFile.Sha256 = "ERROR";
+                return gameFile;
             }
             catch (IOException ex) when (IsAccessDeniedError(ex))
             {
