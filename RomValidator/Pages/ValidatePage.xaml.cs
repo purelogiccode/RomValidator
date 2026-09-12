@@ -882,6 +882,29 @@ public partial class ValidatePage : IDisposable
                 return false;
             }
 
+            // 4. Check for generic binary or non-XML content (e.g. an emulator's
+            // playhistory.dat or other app data mistakenly selected as a DAT).
+            // Valid XML must start with '<' after optional BOM/whitespace. Files
+            // like playhistory.dat contain mostly ASCII paths with embedded
+            // control bytes (e.g. 0x01), so the ratio-based binary heuristic
+            // alone is not enough to catch them. These are user-input mistakes,
+            // not app bugs, so we handle them here (after the ClrMamePro/MAME
+            // checks above, which have their own specific messages) and do NOT
+            // send a bug report.
+            if (LooksLikeBinaryContent(datFilePreview) || !LooksLikeXmlContent(datFilePreview))
+            {
+                const string errorMsg = "Incompatible file format.\n\n" +
+                                        "This application only supports No-Intro XML DAT files.\n\n" +
+                                        "The selected file does not appear to be a text-based XML DAT file (it looks like binary or application data).\n\n" +
+                                        "Please select a valid No-Intro XML DAT file from https://no-intro.org/";
+                LogMessage($"Error: {errorMsg}");
+
+                ShowIncompatibleDatFileError(errorMsg);
+                ClearRomDatabase();
+                _mainWindow.UpdateStatusBarMessage("Binary files are not supported.");
+                return false;
+            }
+
             // First validation pass - check for <datafile> root element
             try
             {
@@ -920,8 +943,9 @@ public partial class ValidatePage : IDisposable
                 LogMessage($"Error: {errorMsg}");
 
                 // Only report genuinely malformed XML. Binary files (e.g. disc images renamed
-                // to .dat) are user-input mistakes, not application bugs, so skip the report.
-                if (DetectKnownBinaryFormat(datFilePreview) == null && !LooksLikeBinaryContent(datFilePreview))
+                // to .dat) or non-XML app data (e.g. an emulator's playhistory.dat)
+                // are user-input mistakes, not application bugs, so skip the report.
+                if (DetectKnownBinaryFormat(datFilePreview) == null && !LooksLikeBinaryContent(datFilePreview) && LooksLikeXmlContent(datFilePreview))
                 {
                     var detailedError = $"XML parsing error for DAT file: {Path.GetFileName(datFilePath)}\n\n" +
                                         $"Error: {xmlEx.Message}\n\n" +
@@ -1086,12 +1110,17 @@ public partial class ValidatePage : IDisposable
 
             LogMessage($"Error: {errorMsg}");
 
-            // Log full details for debugging
+            // Only report XML that at least looks like a DAT. Binary or non-XML
+            // app data mistakenly selected as a DAT is a user-input mistake,
+            // not an application bug (see early guards above).
             var detailedError = $"XML Serialization error for DAT file: {Path.GetFileName(datFilePath)}\n\n" +
                                 $"Error: {innerMsg}\n\n" +
                                 $"Full Exception: {ex}\n\n" +
                                 $"File Preview:\n{datFilePreview}";
-            _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, ex);
+            if (DetectKnownBinaryFormat(datFilePreview) == null && !LooksLikeBinaryContent(datFilePreview) && LooksLikeXmlContent(datFilePreview))
+            {
+                _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, ex);
+            }
 
             ShowIncompatibleDatFileError(errorMsg);
             ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
@@ -1116,8 +1145,9 @@ public partial class ValidatePage : IDisposable
                                 $"File Preview:\n{datFilePreview}";
 
             // Only report genuinely malformed XML. Binary files (e.g. disc images renamed
-            // to .dat) are user-input mistakes, not application bugs, so skip the report.
-            if (DetectKnownBinaryFormat(datFilePreview) == null && !LooksLikeBinaryContent(datFilePreview))
+            // to .dat) or non-XML app data (e.g. an emulator's playhistory.dat)
+            // are user-input mistakes, not application bugs, so skip the report.
+            if (DetectKnownBinaryFormat(datFilePreview) == null && !LooksLikeBinaryContent(datFilePreview) && LooksLikeXmlContent(datFilePreview))
             {
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, xmlEx);
             }
@@ -1205,8 +1235,14 @@ public partial class ValidatePage : IDisposable
         for (var i = 0; i < sampleLength; i++)
         {
             var c = preview[i];
-            // NUL bytes almost never appear in valid text/XML DAT files
-            if (c == '\0') return true;
+            // Characters forbidden in XML 1.0 text (except \t, \n, \r) never appear
+            // in valid XML DAT files. Files like an emulator's playhistory.dat embed
+            // bytes such as 0x01 among mostly-ASCII paths, so a pure ratio check
+            // misses them. Treat any such byte as an immediate binary signal.
+            if (c == '\0' || (c < '\u0020' && c != '\r' && c != '\n' && c != '\t') || c == '\u007F')
+            {
+                return true;
+            }
 
             // Count non-whitespace control characters
             if (char.IsControl(c) && c != '\r' && c != '\n' && c != '\t')
@@ -1224,6 +1260,30 @@ public partial class ValidatePage : IDisposable
         }
 
         return controlCount > sampleLength / 10;
+    }
+
+    /// <summary>
+    /// Determines whether the file preview looks like XML text at all. Valid XML
+    /// must start with '&lt;' after an optional BOM and whitespace (e.g. "&lt;?xml",
+    /// "&lt;datafile", "&lt;!--"). Anything else (e.g. an emulator's playhistory.dat)
+    /// cannot be a valid DAT file, so it is a user-input mistake rather than an
+    /// application bug and must not trigger a bug report.
+    /// </summary>
+    private static bool LooksLikeXmlContent(string? preview)
+    {
+        if (string.IsNullOrWhiteSpace(preview)) return false;
+
+        var trimmed = preview.TrimStart();
+
+        // Strip a BOM, whether decoded as UTF-16 or as Latin-1 bytes (EF BB BF).
+        trimmed = trimmed.TrimStart('\uFEFF');
+        if (trimmed.StartsWith("ï»¿", StringComparison.Ordinal))
+        {
+            trimmed = trimmed[3..].TrimStart();
+            trimmed = trimmed.TrimStart('\uFEFF');
+        }
+
+        return trimmed.StartsWith('<');
     }
 
     private async Task<(Rom? Rom, string HashType)> FindRomByHashAsync(string filePath, CancellationToken token)
