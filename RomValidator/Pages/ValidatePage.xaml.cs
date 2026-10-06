@@ -920,14 +920,14 @@ public partial class ValidatePage : IDisposable
                     // user-input mistake, not an application bug, so no bug report is
                     // sent. Detect common look-alikes to give a more specific hint.
                     string errorMsg;
-                    if (datFilePreview.Contains("<detector", StringComparison.OrdinalIgnoreCase) == true)
+                    if (datFilePreview.Contains("<detector", StringComparison.OrdinalIgnoreCase))
                     {
                         errorMsg = "Incompatible XML file.\n\n" +
                                    "This application only supports No-Intro XML DAT files.\n\n" +
                                    "The selected file is a No-Intro detector file (<detector>), not a DAT file.\n\n" +
                                    "Please select the matching No-Intro .dat file instead.";
                     }
-                    else if (datFilePreview?.Contains("<clrmamepro", StringComparison.OrdinalIgnoreCase) == true)
+                    else if (datFilePreview.Contains("<clrmamepro", StringComparison.OrdinalIgnoreCase))
                     {
                         errorMsg = "Incompatible XML file.\n\n" +
                                    "This application only supports No-Intro XML DAT files.\n\n" +
