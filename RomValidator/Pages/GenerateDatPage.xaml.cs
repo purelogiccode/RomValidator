@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -529,7 +530,25 @@ public partial class GenerateDatPage : IDisposable
                     "Export Complete", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (result == MessageBoxResult.Yes)
                 {
-                    Process.Start(new ProcessStartInfo { FileName = saveFileDialog.FileName, UseShellExecute = true });
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo
+                            { FileName = saveFileDialog.FileName, UseShellExecute = true });
+                    }
+                    catch (Win32Exception)
+                    {
+                        // The export itself succeeded, but Windows has no application
+                        // associated with .dat files (or the shell could not open the
+                        // file). This is an environment issue, not an application bug,
+                        // so show a friendly message instead of reporting an error.
+                        _mainWindow.UpdateStatusBarMessage(
+                            "DAT exported, but no app is associated with .dat files.");
+                        MessageBox.Show(_mainWindow,
+                            "The DAT file was exported successfully, but Windows could not open it automatically.\n\n" +
+                            "This usually means no application is associated with .dat files.\n\n" +
+                            $"The file was saved to:\n{saveFileDialog.FileName}",
+                            "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
                 }
             }
             catch (Exception ex)

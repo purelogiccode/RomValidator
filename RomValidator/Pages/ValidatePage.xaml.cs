@@ -915,18 +915,34 @@ public partial class ValidatePage : IDisposable
 
                 if (!validationReader.ReadToFollowing("datafile"))
                 {
-                    const string errorMsg = "Incompatible DAT file format.\n\n" +
-                                            "This application only supports No-Intro XML DAT files.\n\n" +
-                                            "The selected file does not contain the required <datafile> root element.\n\n" +
-                                            "Please ensure you are using a No-Intro XML DAT file from https://no-intro.org/";
-                    LogMessage($"Error: {errorMsg}");
+                    // The file is valid XML but is not a No-Intro DAT (e.g. a No-Intro
+                    // detector file or a ClrMamePro collection/index). This is a
+                    // user-input mistake, not an application bug, so no bug report is
+                    // sent. Detect common look-alikes to give a more specific hint.
+                    string errorMsg;
+                    if (datFilePreview.Contains("<detector", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        errorMsg = "Incompatible XML file.\n\n" +
+                                   "This application only supports No-Intro XML DAT files.\n\n" +
+                                   "The selected file is a No-Intro detector file (<detector>), not a DAT file.\n\n" +
+                                   "Please select the matching No-Intro .dat file instead.";
+                    }
+                    else if (datFilePreview?.Contains("<clrmamepro", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        errorMsg = "Incompatible XML file.\n\n" +
+                                   "This application only supports No-Intro XML DAT files.\n\n" +
+                                   "The selected file is a ClrMamePro collection/index file, not a DAT file.\n\n" +
+                                   "Please select a No-Intro XML DAT file from https://no-intro.org/";
+                    }
+                    else
+                    {
+                        errorMsg = "Incompatible DAT file format.\n\n" +
+                                   "This application only supports No-Intro XML DAT files.\n\n" +
+                                   "The selected file does not contain the required <datafile> root element.\n\n" +
+                                   "Please ensure you are using a No-Intro XML DAT file from https://no-intro.org/";
+                    }
 
-                    // Send sample to developer
-                    var detailedError =
-                        $"User attempted to load incompatible DAT file: {Path.GetFileName(datFilePath)}\n\n" +
-                        "Error: Missing <datafile> root element\n\n" +
-                        $"File Preview:\n{datFilePreview}";
-                    _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
+                    LogMessage($"Error: {errorMsg}");
 
                     ShowIncompatibleDatFileError(errorMsg);
                     ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
@@ -1375,9 +1391,9 @@ public partial class ValidatePage : IDisposable
                 await Task.Run(() => File.Move(sourcePath, destPath));
                 return;
             }
-            catch (FileNotFoundException)
+            catch (FileNotFoundException ex)
             {
-                throw new IOException($"Source file not found: {sourcePath}");
+                throw new IOException($"Source file not found: {sourcePath}", ex);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
