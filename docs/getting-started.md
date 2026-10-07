@@ -41,7 +41,7 @@ start the application again.
 When the application starts you will see:
 
 - the **Validate ROMs** and **Generate DAT** tabs in the header,
-- the **App Data**, **About** and **Exit** buttons on the right,
+- the **App Data**, **Donate**, **About** and **Exit** buttons on the right,
 - a status bar at the bottom that reports what the application is doing.
 
 The application checks GitHub for a newer release on every launch. If an update is available you

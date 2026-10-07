@@ -33,6 +33,7 @@ A Windows desktop application for validating ROM files against DAT files and gen
 - **Fluent Dark Theme**: Modern dark UI built on WPF-UI (Windows 11 style)
 - **Screenshot Capture**: Press **F8** to save a screenshot of the active window to the `Screenshot\` folder next to the executable (falling back to `%LOCALAPPDATA%\ROM Validator\Screenshot` when the application folder is read-only)
 - **App Data Button**: the **App Data** button in the top-right corner opens `%LOCALAPPDATA%\ROM Validator` in Explorer — logs (`Logs\`) and fallback screenshots (`Screenshot\`) live there, always writable even when installed under Program Files
+- **Donate Button**: the **Donate** button in the top-right corner (next to **About**) opens the [donation page](https://www.purelogiccode.com/donate) in your default browser
 - **Version Checking**: Automatic GitHub version checking at startup, with a prompt to open the release page when an update is available
 - **Robust Error Handling**: Retry-based temp-directory cleanup, binary-format detection for wrongly selected DAT files, and automatic bug reports (Serilog) — all Warning, Error, and Fatal events are forwarded to the bug report API
 
