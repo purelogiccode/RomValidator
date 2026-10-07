@@ -112,7 +112,7 @@ dotnet test
 | Workflow | Purpose |
 |:---------|:--------|
 | [CI](.github/workflows/ci.yml) | Builds and tests every push and pull request |
-| [Release](.github/workflows/release.yml) | Publishes the single-file win-x64/win-arm64 zips (with license, readme and what's new) and checksums on `release_*` / `v*` tags |
+| [Release](.github/workflows/release.yml) | Runs the test suite, then publishes the single-file win-x64/win-arm64 zips (with license, readme and what's new) and checksums on `release_*` / `v*` tags, with generated release notes |
 | [Docs](.github/workflows/docs.yml) | Publishes the documentation site and mirrors `docs/` to the wiki |
 
 See [CI/CD](docs/ci-cd.md) for details.

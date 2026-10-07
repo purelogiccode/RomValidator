@@ -9,6 +9,20 @@ description: "Release history for ROM Validator. Full details on GitHub Releases
 The full release history, with commit-level detail and downloadable zips, is available on the
 [GitHub Releases](https://github.com/purelogiccode/RomValidator/releases) page.
 
+## 2.9.1
+
+### Highlights
+
+- **Reliable release verification**: fixed a race in the bug-report sink test that could make the
+  release verification job fail intermittently.
+- **Generated release notes**: the publish job now checks out the full repository history before
+  creating the GitHub release, so `gh release create --generate-notes` works reliably.
+
+### Notes
+
+- Maintenance release; the application behavior is unchanged from 2.9.0.
+- The release zip is framework-dependent and requires the .NET 10 Desktop Runtime.
+
 ## 2.9.0
 
 ### Highlights

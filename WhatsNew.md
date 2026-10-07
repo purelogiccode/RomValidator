@@ -1,3 +1,14 @@
+Release 2.9.1
+2026-10-07
+
+- Fixed a race in the bug-report sink test that could make the release verification
+  job fail intermittently
+- The release workflow now checks out the full repository history before publishing,
+  so GitHub can generate the release notes automatically
+- Version bumped to 2.9.1; application behavior is unchanged from 2.9.0 and the
+  bundles remain single-file, framework-dependent executables named
+  release_<version>_win-x64.zip and release_<version>_win-arm64.zip
+
 Release 2.9.0
 2026-10-07
 
