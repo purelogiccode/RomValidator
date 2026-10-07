@@ -248,7 +248,7 @@ public partial class App
         {
             const string statsBaseUrl = "https://www.purelogiccode.com/ApplicationStats";
             const string apiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
-            const string statsApplicationId = "rom-validator";
+            const string statsApplicationId = "RomValidator";
             _applicationStatsService = new ApplicationStatsService(statsBaseUrl, apiKey, statsApplicationId);
         }
         catch (Exception ex)
