@@ -1,3 +1,12 @@
+Release 2.9.2
+2026-10-07
+
+- Added a Donate button to the header (next to About) that opens the donation
+  page at https://www.purelogiccode.com/donate in the default browser
+- Version bumped to 2.9.2; the bundles remain single-file, framework-dependent
+  executables named release_<version>_win-x64.zip and
+  release_<version>_win-arm64.zip
+
 Release 2.9.1
 2026-10-07
 

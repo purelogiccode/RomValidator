@@ -7,8 +7,8 @@
         <IsPackable>false</IsPackable>
         <LangVersion>14</LangVersion>
         <Company>PureLogicCode.com</Company>
-        <AssemblyVersion>2.9.1</AssemblyVersion>
-        <FileVersion>2.9.1</FileVersion>
+        <AssemblyVersion>2.9.2</AssemblyVersion>
+        <FileVersion>2.9.2</FileVersion>
         <NeutralLanguage>en</NeutralLanguage>
     </PropertyGroup>
 
