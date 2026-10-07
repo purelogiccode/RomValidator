@@ -1,27 +1,37 @@
 using System.Globalization;
+using RomValidator.Interfaces;
 using Serilog.Core;
 using Serilog.Events;
 
 namespace RomValidator.Services;
 
 /// <summary>
-/// A Serilog sink that forwards Error and Fatal log events to the bug report API.
-/// Each event is submitted via BugReportService with full environment and exception details.
-/// Protected against recursion so a failure inside the sink does not trigger another bug report.
+/// A Serilog sink that forwards Warning, Error, and Fatal log events to the bug report API.
+/// Each event is submitted via <see cref="IBugReportService"/> with full environment and
+/// exception details. Protected against recursion so a failure inside the sink does not
+/// trigger another bug report.
 /// </summary>
 internal sealed class BugReportSink : ILogEventSink, IDisposable
 {
-    private readonly BugReportService _bugReportService;
+    private readonly IBugReportService _bugReportService;
     private int _isSending; // 1 = a bug report send is currently in flight
 
-    public BugReportSink(BugReportService bugReportService)
+    /// <summary>
+    /// Initializes a new instance of the BugReportSink class.
+    /// </summary>
+    /// <param name="bugReportService">The service used to submit forwarded log events.</param>
+    public BugReportSink(IBugReportService bugReportService)
     {
         _bugReportService = bugReportService;
     }
 
+    /// <summary>
+    /// Forwards the log event to the bug report API when it is Warning level or higher.
+    /// </summary>
+    /// <param name="logEvent">The Serilog event to forward.</param>
     public void Emit(LogEvent logEvent)
     {
-        if (logEvent.Level < LogEventLevel.Error)
+        if (logEvent.Level < LogEventLevel.Warning)
             return;
 
         var component = "Serilog";
@@ -86,6 +96,9 @@ internal sealed class BugReportSink : ILogEventSink, IDisposable
         }
     }
 
+    /// <summary>
+    /// Releases resources used by the sink. The sink holds no unmanaged resources.
+    /// </summary>
     public void Dispose()
     {
     }

@@ -1,11 +1,12 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 using RomValidator.Services;
 using Serilog;
-using SharpSevenZip;
 
 namespace RomValidator;
 
@@ -16,6 +17,7 @@ public partial class App
 {
     private BugReportService? _bugReportService;
     private ApplicationStatsService? _applicationStatsService;
+    private GitHubVersionChecker? _versionChecker;
     private BugReportSink? _bugReportSink;
     private static CancellationTokenSource? _globalCancellationTokenSource;
 
@@ -25,26 +27,42 @@ public partial class App
     /// </summary>
     public App()
     {
-        // Check if running from a temp directory (e.g., extracted from a compressed archive)
-        CheckIfRunningFromTempDirectory();
+        // Bootstrap logging first so failures during service initialization are
+        // captured even before the full Serilog configuration is in place.
+        InitializeBootstrapLogging();
 
-        // Initialize global cancellation token source
-        _globalCancellationTokenSource = new CancellationTokenSource();
+        try
+        {
+            // Check if running from a temp directory (e.g., extracted from a compressed archive)
+            CheckIfRunningFromTempDirectory();
 
-        // Initialize bug report service first so we can report any initialization issues
-        InitializeBugReportService();
+            // Initialize global cancellation token source
+            _globalCancellationTokenSource = new CancellationTokenSource();
 
-        // Initialize Serilog logging (depends on BugReportService for the custom sink)
-        InitializeLogging();
+            // Initialize bug report service first so we can report any initialization issues
+            InitializeBugReportService();
 
-        // Initialize application stats service
-        InitializeApplicationStatsService();
+            // Initialize the GitHub version checker (owned by App so the startup update
+            // check is not tied to the lifetime of any particular page)
+            InitializeVersionChecker();
 
-        // Initialize SharpSevenZip library path
-        InitializeSevenZipLibrary();
+            // Initialize Serilog logging (depends on BugReportService for the custom sink)
+            InitializeLogging();
 
-        // Subscribe to global exception handlers
-        SetupGlobalExceptionHandling();
+            // Initialize application stats service
+            InitializeApplicationStatsService();
+
+            // Verify the bundled 7za fallback executable is available
+            CheckSevenZipFallbackAvailability();
+
+            // Subscribe to global exception handlers
+            SetupGlobalExceptionHandling();
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("App", ex, "Error during application initialization");
+            throw;
+        }
     }
 
     /// <summary>
@@ -75,81 +93,64 @@ public partial class App
     }
 
     /// <summary>
-    /// Initializes the SharpSevenZip native library path based on system architecture.
-    /// Supports win-x64 and win-arm64.
+    /// Logs whether the bundled 7za fallback executable is available. The fallback is
+    /// used for archive operations SharpCompress cannot perform (e.g. creating 7z
+    /// archives or reading archives with unsupported compression methods).
     /// </summary>
-    private static void InitializeSevenZipLibrary()
+    private static void CheckSevenZipFallbackAvailability()
     {
         try
         {
-            var appDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string libraryPath;
-            string architectureName;
-
-            // Detect architecture and set appropriate library path
-            if (RuntimeInformation.OSArchitecture == Architecture.Arm64)
+            if (!SevenZipProcess.IsAvailable)
             {
-                libraryPath = Path.Combine(appDirectory, "7z_arm64.dll");
-                architectureName = "ARM64";
-            }
-            else
-            {
-                // Default to x64 for x64 and other architectures
-                libraryPath = Path.Combine(appDirectory, "7z_x64.dll");
-                architectureName = "x64";
-            }
-
-            if (File.Exists(libraryPath))
-            {
-                SharpSevenZipBase.SetLibraryPath(libraryPath);
-            }
-            else
-            {
-                // DLL is missing - report to developer and inform user
-                var errorMessage = $"7z DLL not found for {architectureName} architecture at: {libraryPath}";
-                System.Diagnostics.Debug.WriteLine($"Critical Error: {errorMessage}");
-
-                // Log the error as an exception so the full details are forwarded to the
-                // bug report API through the Serilog sink.
-                var missingDllException = new FileNotFoundException(errorMessage, libraryPath);
-                LoggerService.LogException("MissingSevenZipDll", missingDllException,
-                    "The 7z native library DLL is missing from the application installation");
-
-                // Show user-friendly error dialog
-                ShowMissingSevenZipDllDialog(libraryPath, architectureName);
+                LoggerService.LogInfo("SevenZip",
+                    "The 7za fallback executable was not found; 7z archive creation will be unavailable.");
             }
         }
         catch (Exception ex)
         {
-            // If initialization fails, log but don't crash - SharpSevenZip may still work with auto-detection
-            System.Diagnostics.Debug.WriteLine($"Failed to initialize SharpSevenZip library path: {ex.Message}");
+            LoggerService.LogDebug("SevenZip", $"Could not verify 7za availability: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// Shows a user-friendly error dialog when the 7z DLL is missing.
+    /// Initializes a minimal debug logger before the services are created, so any
+    /// initialization failure is captured even if the full logger setup fails.
+    /// The bootstrap logger is replaced (and disposed) by <see cref="InitializeLogging"/>.
     /// </summary>
-    private static void ShowMissingSevenZipDllDialog(string missingLibraryPath, string architectureName)
+    private static void InitializeBootstrapLogging()
     {
         try
         {
-            var dialogMessage =
-                $"The required 7-Zip library (7z_{architectureName}.dll) is missing from the application.\n\n" +
-                "This file is essential for the application to work with archive files.\n\n" +
-                "Missing file location:\n" +
-                missingLibraryPath + "\n\n" +
-                "Please reinstall the application to fix this issue.\n\n" +
-                "If the problem persists, please contact support.";
+            var bootstrapLogger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Debug(
+                    outputTemplate:
+                    "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] {Level:u3} [{Component}] {Message:lj}{NewLine}{Exception}",
+                    formatProvider: CultureInfo.InvariantCulture)
+                .CreateLogger();
 
-            MessageBox.Show(
-                dialogMessage,
-                "Critical Error - Missing Required Component",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            Log.Logger = bootstrapLogger;
+            LoggerService.Initialize(bootstrapLogger);
         }
         catch
         {
-            // If we can't show the dialog, just ignore - we've already tried to log/report the issue
+            // LoggerService keeps its silent no-op logger; the full setup below may still succeed.
+        }
+    }
+
+    /// <summary>
+    /// Initializes the GitHub version checker used for the startup update check.
+    /// </summary>
+    private void InitializeVersionChecker()
+    {
+        try
+        {
+            _versionChecker = new GitHubVersionChecker("purelogiccode", "RomValidator");
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("App", ex, "Failed to initialize GitHubVersionChecker");
         }
     }
 
@@ -167,14 +168,14 @@ public partial class App
         }
         catch (Exception ex)
         {
-            // If we can't create the bug report service, log to debug output
-            System.Diagnostics.Debug.WriteLine($"Failed to initialize BugReportService: {ex.Message}");
+            // If we can't create the bug report service, log the failure
+            LoggerService.LogException("App", ex, "Failed to initialize BugReportService");
         }
     }
 
     /// <summary>
     /// Initializes Serilog logging with Debug, File, and BugReport sinks.
-    /// Error and Fatal events are forwarded to the bug report API via the custom sink.
+    /// Warning and higher events are forwarded to the bug report API via the custom sink.
     /// </summary>
     private void InitializeLogging()
     {
@@ -200,21 +201,21 @@ public partial class App
                     rollingInterval: RollingInterval.Day,
                     retainedFileCountLimit: 7);
 
-            // Forward Error+ events to the bug report API through the custom sink
+            // Forward Warning+ events to the bug report API through the custom sink
             if (_bugReportService != null)
             {
                 _bugReportSink = new BugReportSink(_bugReportService);
-                loggerConfig = loggerConfig.WriteTo.Sink(_bugReportSink, Serilog.Events.LogEventLevel.Error);
+                loggerConfig = loggerConfig.WriteTo.Sink(_bugReportSink, Serilog.Events.LogEventLevel.Warning);
             }
 
             var logger = loggerConfig.CreateLogger();
+            var previousLogger = Log.Logger;
             Log.Logger = logger;
             LoggerService.Initialize(logger);
+            (previousLogger as IDisposable)?.Dispose();
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to initialize Serilog logging: {ex.Message}");
-
             // Fall back to a debug-only logger so logging (and the global exception
             // handlers) keep working even if the file/sink setup failed.
             try
@@ -223,12 +224,17 @@ public partial class App
                     .MinimumLevel.Debug()
                     .WriteTo.Debug()
                     .CreateLogger();
+                var previousLogger = Log.Logger;
                 Log.Logger = fallbackLogger;
                 LoggerService.Initialize(fallbackLogger);
+                (previousLogger as IDisposable)?.Dispose();
+                LoggerService.LogException("App", ex, "Failed to initialize Serilog logging - using debug fallback");
             }
-            catch
+            catch (Exception fallbackEx)
             {
                 // Last resort: LoggerService stays on its silent no-op logger.
+                Debug.WriteLine(
+                    $"Failed to initialize fallback logging: {fallbackEx.Message} (original: {ex.Message})");
             }
         }
     }
@@ -247,13 +253,14 @@ public partial class App
         }
         catch (Exception ex)
         {
-            // If we can't create the stats service, log to debug output
-            System.Diagnostics.Debug.WriteLine($"Failed to initialize ApplicationStatsService: {ex.Message}");
+            // If we can't create the stats service, log the failure
+            LoggerService.LogException("App", ex, "Failed to initialize ApplicationStatsService");
         }
     }
 
     /// <summary>
-    /// Sets up global exception handlers for both UI and non-UI thread exceptions.
+    /// Sets up global exception handlers for both UI and non-UI thread exceptions,
+    /// and registers the application-wide F8 screenshot shortcut.
     /// </summary>
     private void SetupGlobalExceptionHandling()
     {
@@ -265,6 +272,36 @@ public partial class App
 
         // Handle unobserved task exceptions
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+
+        // Handle F8 (screenshot of the active window) for every window in the application
+        EventManager.RegisterClassHandler(typeof(Window), Keyboard.PreviewKeyDownEvent,
+            new KeyEventHandler(OnGlobalPreviewKeyDown));
+    }
+
+    /// <summary>
+    /// Handles the F8 shortcut on any window: captures a screenshot of the active window.
+    /// </summary>
+    private static void OnGlobalPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F8)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        try
+        {
+            var filePath = ScreenshotService.CaptureActiveWindowScreenshot();
+            if (filePath != null && Current?.MainWindow is MainWindow mainWindow)
+            {
+                _ = mainWindow.UpdateStatusBarMessageAsync($"Screenshot saved: {filePath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("Screenshot", ex, "Error capturing screenshot");
+        }
     }
 
     /// <summary>
@@ -277,19 +314,97 @@ public partial class App
             if (_applicationStatsService != null)
             {
                 // Record usage asynchronously without blocking startup
-                _ = _applicationStatsService.RecordUsageAsync().ContinueWith(static t =>
-                {
-                    if (t.IsFaulted)
-                    {
-                        LoggerService.LogError("Startup",
-                            $"Stats recording failed: {t.Exception?.InnerException?.Message}");
-                    }
-                }, TaskContinuationOptions.OnlyOnFaulted);
+                _ = RecordUsageSafeAsync();
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to record application usage: {ex.Message}");
+            LoggerService.LogException("App", ex, "Failed to record application usage");
+        }
+    }
+
+    /// <summary>
+    /// Records application usage without allowing failures to escape into the startup path.
+    /// </summary>
+    private async Task RecordUsageSafeAsync()
+    {
+        try
+        {
+            if (_applicationStatsService != null)
+            {
+                await _applicationStatsService.RecordUsageAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Stats failures are environmental; keep them out of bug reports.
+            LoggerService.LogInfo("Startup", $"Stats recording failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Schedules the startup update check. StartupUri windows are created after
+    /// OnStartup returns, so the check runs once the dispatcher is idle and the
+    /// main window is available.
+    /// </summary>
+    private void ScheduleUpdateCheck()
+    {
+        _ = Dispatcher.InvokeAsync(
+            async () => await CheckForUpdatesSafeAsync(),
+            DispatcherPriority.ApplicationIdle);
+    }
+
+    /// <summary>
+    /// Checks GitHub for a newer release and prompts the user to open the release page.
+    /// The check is cancelled automatically when the application exits.
+    /// </summary>
+    private async Task CheckForUpdatesSafeAsync()
+    {
+        try
+        {
+            var cancellationToken = _globalCancellationTokenSource?.Token ?? CancellationToken.None;
+
+            if (_versionChecker == null)
+            {
+                return;
+            }
+
+            var (isNewVersionAvailable, releaseUrl, latestVersionTag) =
+                await _versionChecker.CheckForNewVersionAsync(cancellationToken);
+
+            if (!isNewVersionAvailable || releaseUrl == null || latestVersionTag == null)
+            {
+                return;
+            }
+
+            // The main window may have been closed while the check was in flight.
+            if (Current?.MainWindow is not MainWindow { IsLoaded: true } mainWindow)
+            {
+                return;
+            }
+
+            var currentVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown";
+            mainWindow.UpdateStatusBarMessage($"New version {latestVersionTag} available!");
+
+            var result = MessageBox.Show(
+                mainWindow,
+                $"A new version ({latestVersionTag}) of ROM Validator is available!\n\n" +
+                $"Your current version: {currentVersion}\n\n" +
+                "Would you like to go to the release page to download it?",
+                "New Version Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                Process.Start(new ProcessStartInfo(releaseUrl) { UseShellExecute = true });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Application is shutting down - nothing to do
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("UpdateCheck", ex, "Error during startup update check");
         }
     }
 
@@ -304,7 +419,7 @@ public partial class App
         {
             var ex = e.Exception;
 
-            // Log the exception. LoggerService routes Error+ events through Serilog's
+            // Log the exception. LoggerService routes Warning+ events through Serilog's
             // BugReportSink, which forwards the full details to the bug report API.
             LoggerService.LogException("GlobalDispatcherException", ex, "Unhandled exception in UI/Dispatcher thread");
 
@@ -314,7 +429,7 @@ public partial class App
         catch (Exception handlerEx)
         {
             // If the exception handler itself fails, try to log it
-            System.Diagnostics.Debug.WriteLine($"Exception in global handler: {handlerEx.Message}");
+            LoggerService.LogException("GlobalDispatcherException", handlerEx, "Exception in global handler");
         }
     }
 
@@ -344,7 +459,7 @@ public partial class App
         catch (Exception handlerEx)
         {
             // If the exception handler itself fails, try to log it
-            System.Diagnostics.Debug.WriteLine($"Exception in global handler: {handlerEx.Message}");
+            LoggerService.LogException("GlobalAppDomainException", handlerEx, "Exception in global handler");
         }
     }
 
@@ -366,7 +481,7 @@ public partial class App
         catch (Exception handlerEx)
         {
             // If the exception handler itself fails, try to log it
-            System.Diagnostics.Debug.WriteLine($"Exception in task exception handler: {handlerEx.Message}");
+            LoggerService.LogException("GlobalTaskException", handlerEx, "Exception in task exception handler");
         }
     }
 
@@ -386,40 +501,37 @@ public partial class App
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
-        catch
+        catch (Exception dialogEx)
         {
-            // If we can't show the dialog, just ignore - we've already tried to report the bug
+            // If we can't show the dialog, just log - we've already tried to report the bug
+            LoggerService.LogDebug("App", $"Could not show fatal error dialog: {dialogEx.Message}");
         }
     }
 
     /// <summary>
     /// Gets the global BugReportService instance for use throughout the application.
     /// </summary>
+    /// <returns>The shared bug report service, or null when initialization failed.</returns>
     public BugReportService? GetBugReportService()
     {
         return _bugReportService;
     }
 
     /// <summary>
-    /// Gets the global ApplicationStatsService instance for use throughout the application.
+    /// Override OnStartup to record application usage and check for updates.
     /// </summary>
-    public ApplicationStatsService? GetApplicationStatsService()
-    {
-        return _applicationStatsService;
-    }
-
-    /// <summary>
-    /// Override OnStartup to record application usage.
-    /// </summary>
+    /// <param name="e">The startup event arguments.</param>
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         RecordApplicationUsage();
+        ScheduleUpdateCheck();
     }
 
     /// <summary>
-    /// Override OnExit to clean up the BugReportService.
+    /// Override OnExit to clean up the BugReportService and other resources.
     /// </summary>
+    /// <param name="e">The exit event arguments.</param>
     protected override void OnExit(ExitEventArgs e)
     {
         try
@@ -430,7 +542,17 @@ public partial class App
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error closing Serilog logger: {ex.Message}");
+            LoggerService.LogWarning("App", $"Error closing Serilog logger: {ex.Message}");
+        }
+
+        try
+        {
+            _bugReportSink?.Dispose();
+            _bugReportSink = null;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogWarning("App", $"Error disposing BugReportSink: {ex.Message}");
         }
 
         try
@@ -440,7 +562,7 @@ public partial class App
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error disposing BugReportService: {ex.Message}");
+            LoggerService.LogWarning("App", $"Error disposing BugReportService: {ex.Message}");
         }
 
         try
@@ -450,7 +572,17 @@ public partial class App
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error disposing ApplicationStatsService: {ex.Message}");
+            LoggerService.LogWarning("App", $"Error disposing ApplicationStatsService: {ex.Message}");
+        }
+
+        try
+        {
+            _versionChecker?.Dispose();
+            _versionChecker = null;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogWarning("App", $"Error disposing GitHubVersionChecker: {ex.Message}");
         }
 
         try
@@ -460,18 +592,10 @@ public partial class App
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error disposing global cancellation token source: {ex.Message}");
+            LoggerService.LogWarning("App", $"Error disposing global cancellation token source: {ex.Message}");
         }
 
         base.OnExit(e);
-    }
-
-    /// <summary>
-    /// Gets the global cancellation token for application shutdown.
-    /// </summary>
-    public static CancellationToken GetGlobalCancellationToken()
-    {
-        return _globalCancellationTokenSource?.Token ?? CancellationToken.None;
     }
 
     /// <summary>
@@ -479,6 +603,13 @@ public partial class App
     /// </summary>
     public static void CancelAllOperations()
     {
-        _globalCancellationTokenSource?.Cancel();
+        try
+        {
+            _globalCancellationTokenSource?.Cancel();
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("App", ex, "Error cancelling ongoing operations");
+        }
     }
 }

@@ -41,4 +41,56 @@ public class HashCalculatorTests
         // Assert
         Assert.Equal(expected, result);
     }
+
+    [Fact]
+    public async Task CalculateHashesAsyncNonExistentFileReturnsErrorEntry()
+    {
+        var missingFile = Path.Combine(Path.GetTempPath(), $"missing_{Guid.NewGuid():N}.bin");
+
+        var results = await HashCalculator.CalculateHashesAsync(missingFile, CancellationToken.None);
+
+        Assert.Single(results);
+        Assert.False(string.IsNullOrEmpty(results[0].ErrorMessage));
+        Assert.Equal("ERROR", results[0].Crc32);
+    }
+
+    [Fact]
+    public async Task CalculateHashesAsyncDirectoryPathReturnsErrorEntry()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"hashdir_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var results = await HashCalculator.CalculateHashesAsync(tempDir, CancellationToken.None);
+
+            Assert.Single(results);
+            Assert.False(string.IsNullOrEmpty(results[0].ErrorMessage));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task CalculateHashesAsyncSingleByteFileMatchesKnownHashes()
+    {
+        var tempFile = Path.GetTempFileName();
+
+        try
+        {
+            await File.WriteAllBytesAsync(tempFile, [0x00]);
+
+            var results = await HashCalculator.CalculateHashesAsync(tempFile, CancellationToken.None);
+
+            Assert.Single(results);
+            Assert.Equal("d202ef8d", results[0].Crc32);
+            Assert.Equal("93b885adfe0da089cdf634904fd59f71", results[0].Md5);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
 }

@@ -1,18 +1,19 @@
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/RomValidator)](https://github.com/purelogiccode/RomValidator/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/RomValidator/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
+[![CI](https://github.com/purelogiccode/RomValidator/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/RomValidator/actions/workflows/ci.yml)
 
 # ROM Validator
 
 A Windows desktop application for validating ROM files against DAT files and generating new No-Intro compliant DAT files from your collection.
 
-> **Latest release notes:** see [WhatsNew.md](WhatsNew.md)
+> **Documentation:** <https://purelogiccode.github.io/RomValidator/> &nbsp;|&nbsp; **Release notes:** see [docs/release-notes.md](docs/release-notes.md)
 
 ## 📸 Screenshots
 
-![System Selection](screenshot.png)
+![System Selection](docs/assets/images/screenshot.png)
 
-![List Of Games in Grid Mode](screenshot2.png)
+![List Of Games in Grid Mode](docs/assets/images/screenshot2.png)
 
 ## Features
 
@@ -20,18 +21,42 @@ A Windows desktop application for validating ROM files against DAT files and gen
 - **DAT File Generation**: Generate new No-Intro compliant DAT files from your ROM collection
 - **Duplicate Detection**: Identify duplicate ROM files in your collection
 - **Multiple Hash Support**: CRC32, MD5, SHA-1, and SHA-256 hash verification
-- **Archive Support**: Read ROMs directly from `.zip`, `.7z`, and `.rar` archives (SharpSevenZip), with large entries (>256 MB) streamed through a temp file to avoid out-of-memory errors
+- **Archive Support**: Read ROMs directly from `.zip`, `.7z`, and `.rar` archives (SharpCompress), with the bundled `7za.exe` / `7za_arm64.exe` as a fallback for archives SharpCompress cannot read or create
 - **Fluent Dark Theme**: Modern dark UI built on WPF-UI (Windows 11 style)
-- **Screenshot Capture**: Press **F8** to save a screenshot of the main window to `%LOCALAPPDATA%\ROM Validator\Screenshot`
-- **App Data Button**: the **App Data** button in the top-right corner opens `%LOCALAPPDATA%\ROM Validator` in Explorer — logs (`Logs\`) and screenshots (`Screenshot\`) live there, always writable even when installed under Program Files
-- **Version Checking**: Automatic GitHub version checking for updates
-- **Robust Error Handling**: Retry-based temp-directory cleanup, binary-format detection for wrongly selected DAT files, and automatic bug reports (Serilog) — user-file errors (corrupt archives, cloud placeholders, locked files) are never reported as application bugs
+- **Screenshot Capture**: Press **F8** to save a screenshot of the active window to the `Screenshot\` folder next to the executable (falling back to `%LOCALAPPDATA%\ROM Validator\Screenshot` when the application folder is read-only)
+- **App Data Button**: the **App Data** button in the top-right corner opens `%LOCALAPPDATA%\ROM Validator` in Explorer — logs (`Logs\`) and fallback screenshots (`Screenshot\`) live there, always writable even when installed under Program Files
+- **Version Checking**: Automatic GitHub version checking at startup, with a prompt to open the release page when an update is available
+- **Robust Error Handling**: Retry-based temp-directory cleanup, binary-format detection for wrongly selected DAT files, and automatic bug reports (Serilog) — all Warning, Error, and Fatal events are forwarded to the bug report API
 
 ## Requirements
 
-- **.NET 10.0** or higher
 - **Windows 10/11** (x64 or ARM64) — WPF application
-- **7z native libraries** (included via SharpSevenZip package)
+- **.NET 10 Desktop Runtime** — the release zip is framework-dependent
+- **7-Zip standalone executables** (`7za.exe` for x64, `7za_arm64.exe` for ARM64, 7-Zip 26.03) — included for the archive fallback
+
+## Installation
+
+1. Download the zip for your architecture from the [latest release](https://github.com/purelogiccode/RomValidator/releases/latest):
+   - `RomValidator_<version>_win-x64.zip`
+   - `RomValidator_<version>_win-arm64.zip`
+2. Extract it to a permanent folder and run `RomValidator.exe`. The application refuses to run directly from a zip archive or a temporary folder.
+
+Full instructions: [Getting Started](docs/getting-started.md).
+
+## Documentation
+
+The complete documentation lives in the [`docs/`](docs) folder and is published to:
+
+- **Documentation site:** <https://purelogiccode.github.io/RomValidator/>
+- **GitHub Wiki:** <https://github.com/purelogiccode/RomValidator/wiki>
+
+| Section | Contents |
+|:--------|:---------|
+| [Getting Started](docs/getting-started.md) | Install, first run, quick start |
+| [User Guide](docs/user-guide.md) | Validation, DAT generation, duplicates, archives, data |
+| [Reference](docs/reference.md) | Formats, troubleshooting, build, architecture, CI/CD |
+| [FAQ](docs/faq.md) | Frequently asked questions |
+| [Contributing](docs/contributing.md) | Bugs, features, pull requests |
 
 ## Usage
 
@@ -51,8 +76,8 @@ A Windows desktop application for validating ROM files against DAT files and gen
 5. Save the generated DAT file for use with other ROM management tools
 
 ### Tips
-- Use **F8** anytime to capture a screenshot of the current window.
-- Click **App Data** (top-right, next to About) to open the folder where logs and screenshots are stored.
+- Use **F8** anytime to capture a screenshot of the active window.
+- Click **App Data** (top-right, next to About) to open the folder where logs and fallback screenshots are stored.
 - DAT files must be No-Intro XML; ZIP archives, binary images, and ClrMamePro/MAME formats are detected and rejected with a clear message.
 - If a file is temporarily locked (e.g. still being written), the app retries automatically and cleans up leftover temp folders in the background.
 
@@ -60,21 +85,33 @@ A Windows desktop application for validating ROM files against DAT files and gen
 
 - **WPF-UI** (4.3.0): Fluent design system and dark theme
 - **Serilog** (4.4.0) + Sinks (Debug, File): structured logging and automatic bug reports
-- **SharpSevenZip** (2.0.109): 7z/RAR archive support with native win-x64/win-arm64 libraries
-- **xUnit** (2.9.3), **Microsoft.NET.Test.Sdk** (18.8.1), **coverlet.collector** (10.0.1): testing
+- **SharpCompress** (0.50.4): zip/7z/RAR archive reading and zip/7z archive creation
+- **7-Zip 26.03** (`7za.exe` / `7za_arm64.exe`): fallback for archive operations SharpCompress cannot perform
+- **xUnit** (2.9.3), **Microsoft.NET.Test.Sdk** (18.10.1), **coverlet.collector** (10.1.0): testing
 
 ## Tests
 
-The solution includes unit and integration tests (models, services, hash calculation, temp-directory cleanup, serialization). Run them with:
+The solution includes unit and integration tests (models, services, hash calculation, archive handling, temp-directory cleanup, serialization). Run them with:
 
 ```
 dotnet test
 ```
 
+## Continuous Integration
+
+| Workflow | Purpose |
+|:---------|:--------|
+| [CI](.github/workflows/ci.yml) | Builds and tests every push and pull request |
+| [Release](.github/workflows/release.yml) | Publishes the win-x64/win-arm64 zips and checksums on `v*` tags |
+| [Docs](.github/workflows/docs.yml) | Publishes the documentation site and mirrors `docs/` to the wiki |
+
+See [CI/CD](docs/ci-cd.md) for details.
+
 ## Acknowledgments
 
 - No-Intro for the DAT file format specification
-- SharpSevenZip for archive support
+- SharpCompress for archive support
+- 7-Zip for the standalone fallback executables
 - WPF-UI for the Fluent design system
 
 ## Contributing & Support

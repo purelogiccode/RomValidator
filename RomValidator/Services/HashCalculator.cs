@@ -1,79 +1,24 @@
 using System.ComponentModel;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-using SharpSevenZip;
-using SharpSevenZip.Exceptions;
+using SharpCompress.Archives;
 using RomValidator.Models;
 
 namespace RomValidator.Services;
 
 /// <summary>
 /// Provides static methods for calculating hash values (CRC32, MD5, SHA1, SHA256) for files and archives.
-/// Supports both regular files and archive formats (ZIP, 7Z, RAR) with automatic extraction.
+/// Supports both regular files and archive formats (ZIP, 7Z, RAR) using SharpCompress,
+/// with the 7za command-line tool as a fallback for archives SharpCompress cannot read.
 /// </summary>
 public static partial class HashCalculator
 {
     // Archive file extensions supported - shared regex pattern
     private static readonly Regex SArchiveExtensionRegex = MyRegex();
-    private static bool _sevenZipInitialized;
-    private static readonly Lock InitLock = new();
     private const int BufferSize = 65536; // 64KB buffer for file operations
     private const int InitialRetryDelayMs = 100; // Initial delay for retry attempts in milliseconds
-    private const int ErrorDiskFull = unchecked((int)0x80070070);
     private const int ErrorCrc = unchecked((int)0x80070017); // Win32 ERROR_CRC (23): unreadable data / bad sectors
-    private const long MemoryStreamThreshold = 256L * 1024 * 1024; // 256 MB — above this, use temp file
-
-    /// <summary>
-    /// Checks if an exception indicates a disk-full error.
-    /// </summary>
-    private static bool IsDiskFullError(Exception ex)
-    {
-        if (ex.HResult == ErrorDiskFull) return true;
-
-        var msg = ex.Message;
-        return msg.Contains("not enough space", StringComparison.OrdinalIgnoreCase) ||
-               msg.Contains("disk full", StringComparison.OrdinalIgnoreCase) ||
-               msg.Contains("ERROR_DISK_FULL", StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Initializes the SevenZip library for archive extraction operations.
-    /// This method detects the system architecture and sets the appropriate native library path.
-    /// This is called from App.xaml.cs at startup, but this method ensures
-    /// it's initialized before any archive operations if needed.
-    /// </summary>
-    public static void InitializeSevenZip()
-    {
-        lock (InitLock)
-        {
-            if (_sevenZipInitialized) return;
-
-            var appDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string libraryPath;
-
-            // Detect architecture and set appropriate library path
-            // Supports win-x64 and win-arm64
-            if (RuntimeInformation.OSArchitecture == Architecture.Arm64)
-            {
-                libraryPath = Path.Combine(appDirectory, "7z_arm64.dll");
-            }
-            else
-            {
-                // Default to x64 for x64 and other architectures
-                libraryPath = Path.Combine(appDirectory, "7z_x64.dll");
-            }
-
-            if (File.Exists(libraryPath))
-            {
-                SharpSevenZipBase.SetLibraryPath(libraryPath);
-            }
-            // If not found, SharpSevenZip will attempt auto-detection
-
-            _sevenZipInitialized = true;
-        }
-    }
 
     /// <summary>
     /// Calculates hash values (CRC32, MD5, SHA1, SHA256) for a file or archive.
@@ -81,25 +26,48 @@ public static partial class HashCalculator
     /// </summary>
     /// <param name="filePath">The path to the file or archive to process.</param>
     /// <param name="cancellationToken">Cancellation token to stop the operation.</param>
-    /// <param name="bugReportService">Optional bug report service for error tracking.</param>
     /// <returns>A list of <see cref="GameFile"/> objects containing hash results for each file.</returns>
-    public static async Task<List<GameFile>> CalculateHashesAsync(string filePath, CancellationToken cancellationToken,
-        BugReportService? bugReportService = null)
+    public static async Task<List<GameFile>> CalculateHashesAsync(string filePath,
+        CancellationToken cancellationToken)
     {
-        InitializeSevenZip();
+        try
+        {
+            return await CalculateHashesCoreAsync(filePath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("HashCalculator", ex, $"Unexpected error calculating hashes for '{filePath}'");
+            throw;
+        }
+    }
 
+    /// <summary>
+    /// Core hash calculation implementation shared by the public entry point.
+    /// </summary>
+    /// <param name="filePath">The path to the file or archive to process.</param>
+    /// <param name="cancellationToken">Cancellation token to stop the operation.</param>
+    /// <returns>A list of <see cref="GameFile"/> objects containing hash results for each file.</returns>
+    private static async Task<List<GameFile>> CalculateHashesCoreAsync(string filePath,
+        CancellationToken cancellationToken)
+    {
         var fileInfo = new FileInfo(filePath);
         var gameFiles = new List<GameFile>();
 
-        // Skip cloud-only placeholders (e.g. OneDrive files that are not fully available locally)
-        if (fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        // Skip cloud-only placeholders (e.g. OneDrive files that are not fully available locally).
+        // FileInfo.Attributes returns -1 (all flags set, including ReparsePoint) for missing
+        // files, so require the file to actually exist before treating it as a placeholder.
+        if (fileInfo.Exists && fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
         {
-            LoggerService.LogWarning("HashCalculator", $"Skipping cloud-only placeholder file: '{fileInfo.Name}'");
+            LoggerService.LogInfo("HashCalculator", $"Skipping cloud-only placeholder file: '{fileInfo.Name}'");
             gameFiles.Add(new GameFile
             {
                 FileName = fileInfo.Name,
                 GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                FileSize = fileInfo.Length,
+                FileSize = GetFileSizeSafe(fileInfo),
                 ErrorMessage =
                     "This file is a cloud-only placeholder and is not fully available locally. Please ensure the file is downloaded to your device.",
                 IsUserError = true,
@@ -111,266 +79,234 @@ public static partial class HashCalculator
             return gameFiles;
         }
 
-        // Check if file is an archive
         if (IsArchiveFile(fileInfo.Name))
         {
-            try
+            return await CalculateArchiveHashesAsync(fileInfo, filePath, cancellationToken).ConfigureAwait(false);
+        }
+
+        // Create algorithm instances once per file
+        using var crc32 = new Crc32Algorithm();
+        using var md5 = MD5.Create();
+        using var sha1 = SHA1.Create();
+        using var sha256 = SHA256.Create();
+
+        // Process as regular file
+        var gameFile = await ProcessFileAsync(
+            filePath, fileInfo,
+            crc32, md5, sha1, sha256,
+            cancellationToken).ConfigureAwait(false);
+
+        if (gameFile != null)
+        {
+            gameFiles.Add(gameFile);
+        }
+
+        return gameFiles;
+    }
+
+    /// <summary>
+    /// Calculates hashes for every file inside an archive using SharpCompress. When the
+    /// archive cannot be read by SharpCompress, the 7za fallback is attempted before
+    /// returning an error entry.
+    /// </summary>
+    /// <param name="fileInfo">Information about the archive file.</param>
+    /// <param name="filePath">The path to the archive file.</param>
+    /// <param name="cancellationToken">Cancellation token to stop the operation.</param>
+    /// <returns>A list of <see cref="GameFile"/> objects, one per archive entry.</returns>
+    private static async Task<List<GameFile>> CalculateArchiveHashesAsync(FileInfo fileInfo, string filePath,
+        CancellationToken cancellationToken)
+    {
+        var gameFiles = new List<GameFile>();
+
+        try
+        {
+            using var archive = ArchiveFactory.OpenArchive(filePath);
+
+            foreach (var entry in archive.Entries)
             {
-                // Open archive using SevenZipSharp
-                using var extractor = new SharpSevenZipExtractor(filePath);
+                if (entry.IsDirectory) continue;
+
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Process each file in the archive
-                foreach (var entry in extractor.ArchiveFileData)
+                var entryKey = entry.Key ?? string.Empty;
+
+                // Create algorithm instances once per archive entry
+                using var crc32 = new Crc32Algorithm();
+                using var md5 = MD5.Create();
+                using var sha1 = SHA1.Create();
+                using var sha256 = SHA256.Create();
+
+                try
                 {
-                    if (entry.IsDirectory) continue;
+                    await using var entryStream = entry.OpenEntryStream();
+                    var gameFile = await ProcessStreamAsync(
+                        entryStream,
+                        entryKey,
+                        crc32, md5, sha1, sha256,
+                        cancellationToken,
+                        entry.Size).ConfigureAwait(false);
 
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    // Create algorithm instances once per archive entry
-                    using var crc32 = new Crc32Algorithm();
-                    using var md5 = MD5.Create();
-                    using var sha1 = SHA1.Create();
-                    using var sha256 = SHA256.Create();
-
-                    // Use temp file for large entries (>=256 MB) to avoid OutOfMemoryException
-                    var useTempFile = (long)entry.Size >= MemoryStreamThreshold;
-                    Stream entryStream = useTempFile
-                        ? new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite,
-                            FileShare.Read, BufferSize, FileOptions.DeleteOnClose | FileOptions.Asynchronous)
-                        : new MemoryStream();
-
-                    try
+                    if (gameFile != null)
                     {
-                        try
-                        {
-                            await extractor.ExtractFileAsync(entry.Index, entryStream);
-                        }
-                        catch (ExtractionFailedException entryEx)
-                        {
-                            // Individual entry is corrupted - log warning but do not send bug report for corrupt files
-                            if (IsDiskFullError(entryEx))
-                            {
-                                _ = bugReportService?.SendBugReportAsync(
-                                    $"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}' - DISK FULL",
-                                    entryEx);
-                            }
-
-                            LoggerService.LogWarning("HashCalculator",
-                                $"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}': {entryEx.Message}");
-                            gameFiles.Add(new GameFile
-                            {
-                                FileName = entry.FileName,
-                                GameName = Path.GetFileNameWithoutExtension(entry.FileName),
-                                FileSize = (long)entry.Size,
-                                ErrorMessage = "This file is corrupted or damaged within the archive",
-                                IsUserError = true,
-                                Crc32 = "ERROR",
-                                Md5 = "ERROR",
-                                Sha1 = "ERROR",
-                                Sha256 = "ERROR"
-                            });
-                            continue;
-                        }
-                        catch (SharpSevenZipException entryEx)
-                        {
-                            // Internal error extracting individual entry - log warning but do not send bug report for corrupt files
-                            if (IsDiskFullError(entryEx))
-                            {
-                                _ = bugReportService?.SendBugReportAsync(
-                                    $"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}' - DISK FULL",
-                                    entryEx);
-                            }
-
-                            LoggerService.LogWarning("HashCalculator",
-                                $"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}': {entryEx.Message}");
-                            gameFiles.Add(new GameFile
-                            {
-                                FileName = entry.FileName,
-                                GameName = Path.GetFileNameWithoutExtension(entry.FileName),
-                                FileSize = (long)entry.Size,
-                                ErrorMessage =
-                                    "An error occurred while extracting this file from the archive. It may be corrupted or use an unsupported format.",
-                                IsUserError = true,
-                                Crc32 = "ERROR",
-                                Md5 = "ERROR",
-                                Sha1 = "ERROR",
-                                Sha256 = "ERROR"
-                            });
-                            continue;
-                        }
-
-                        entryStream.Position = 0;
-
-                        var gameFile = await ProcessStreamAsync(
-                            entryStream,
-                            entry.FileName,
-                            crc32, md5, sha1, sha256,
-                            cancellationToken,
-                            bugReportService).ConfigureAwait(false);
-
-                        if (gameFile != null)
-                        {
-                            // Track the original archive filename for proper DAT generation
-                            gameFile.ArchiveFileName = fileInfo.Name;
-                            gameFiles.Add(gameFile);
-                        }
-                    }
-                    finally
-                    {
-                        // Always release the stream (and the temp file handle for large entries),
-                        // including on cancellation or any unexpected exception.
-                        entryStream.Dispose();
+                        // Track the original archive filename for proper DAT generation
+                        gameFile.ArchiveFileName = fileInfo.Name;
+                        gameFiles.Add(gameFile);
                     }
                 }
-
-                return gameFiles;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (SharpSevenZipArchiveException archiveEx)
-            {
-                // Invalid or unrecognized archive format - do not send bug report for corrupt files
-                if (IsDiskFullError(archiveEx))
+                catch (OperationCanceledException)
                 {
-                    _ = bugReportService?.SendBugReportAsync(
-                        $"Invalid or unrecognized archive format for file '{fileInfo.Name}' - DISK FULL", archiveEx);
+                    throw;
                 }
-
-                LoggerService.LogWarning("HashCalculator",
-                    $"Invalid or unrecognized archive format for file '{fileInfo.Name}': {archiveEx.Message}");
-                return
-                [
-                    new GameFile
-                    {
-                        FileName = fileInfo.Name,
-                        GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                        FileSize = fileInfo.Length,
-                        ErrorMessage =
-                            "The archive file appears to be corrupted, incomplete, or in an unsupported format. The file may be damaged or not a valid archive.",
-                        IsUserError = true,
-                        Crc32 = "ERROR",
-                        Md5 = "ERROR",
-                        Sha1 = "ERROR",
-                        Sha256 = "ERROR"
-                    }
-                ];
-            }
-            catch (ExtractionFailedException archiveEx)
-            {
-                // Archive is corrupted or has data errors - do not send bug report for corrupt files
-                if (IsDiskFullError(archiveEx))
+                catch (Exception entryEx) when (!FileSystemHelper.IsDiskFullError(entryEx))
                 {
-                    _ = bugReportService?.SendBugReportAsync(
-                        $"Archive extraction failed for file '{fileInfo.Name}' - DISK FULL", archiveEx);
+                    // Individual entry is corrupted - a user-environment issue, not an app bug
+                    LoggerService.LogInfo("HashCalculator",
+                        $"Archive entry extraction failed for '{entryKey}' in archive '{fileInfo.Name}': {entryEx.Message}");
+                    gameFiles.Add(CreateArchiveErrorGameFile(entryKey, entry.Size,
+                        "This file is corrupted or damaged within the archive"));
                 }
-
-                LoggerService.LogWarning("HashCalculator",
-                    $"Archive extraction failed for file '{fileInfo.Name}': {archiveEx.Message}");
-                return
-                [
-                    new GameFile
-                    {
-                        FileName = fileInfo.Name,
-                        GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                        FileSize = fileInfo.Length,
-                        ErrorMessage =
-                            "The archive is corrupted or has data errors. The file may be incomplete or damaged.",
-                        IsUserError = true,
-                        Crc32 = "ERROR",
-                        Md5 = "ERROR",
-                        Sha1 = "ERROR",
-                        Sha256 = "ERROR"
-                    }
-                ];
             }
-            catch (SharpSevenZipException sevenZipEx)
-            {
-                // Internal SharpSevenZip error during extraction - do not send bug report for corrupt files
-                if (IsDiskFullError(sevenZipEx))
-                {
-                    _ = bugReportService?.SendBugReportAsync(
-                        $"SharpSevenZip internal error processing archive '{fileInfo.Name}' - DISK FULL", sevenZipEx);
-                }
-
-                LoggerService.LogWarning("HashCalculator",
-                    $"SharpSevenZip internal error processing archive '{fileInfo.Name}': {sevenZipEx.Message}");
-                return
-                [
-                    new GameFile
-                    {
-                        FileName = fileInfo.Name,
-                        GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                        FileSize = fileInfo.Length,
-                        ErrorMessage =
-                            "An internal error occurred while reading the archive. The file may be corrupted, partially downloaded, or use an unsupported compression method.",
-                        IsUserError = true,
-                        Crc32 = "ERROR",
-                        Md5 = "ERROR",
-                        Sha1 = "ERROR",
-                        Sha256 = "ERROR"
-                    }
-                ];
-            }
-            catch (Exception ex)
-            {
-                // Unexpected error - only send bug report for disk-full or truly unexpected errors
-                if (IsDiskFullError(ex))
-                {
-                    _ = bugReportService?.SendBugReportAsync(
-                        $"Unexpected archive extraction error for file '{fileInfo.Name}' - DISK FULL", ex);
-                }
-
-                LoggerService.LogException("HashCalculator", ex,
-                    $"Unexpected error processing archive '{fileInfo.Name}'");
-                // Return an error object for the archive itself so the UI knows extraction failed.
-                // We do NOT hash the container anymore.
-                return
-                [
-                    new GameFile
-                    {
-                        FileName = fileInfo.Name,
-                        GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                        FileSize = fileInfo.Length,
-                        ErrorMessage = $"An unexpected error occurred while processing the archive: {ex.Message}",
-                        Crc32 = "ERROR",
-                        Md5 = "ERROR",
-                        Sha1 = "ERROR",
-                        Sha256 = "ERROR"
-                    }
-                ];
-            }
-        }
-        else
-        {
-            // Create algorithm instances once per file
-            using var crc32 = new Crc32Algorithm();
-            using var md5 = MD5.Create();
-            using var sha1 = SHA1.Create();
-            using var sha256 = SHA256.Create();
-
-            // Process as regular file
-            var gameFile = await ProcessFileAsync(
-                filePath, fileInfo,
-                crc32, md5, sha1, sha256,
-                cancellationToken,
-                bugReportService).ConfigureAwait(false);
-
-            if (gameFile != null)
-                gameFiles.Add(gameFile);
 
             return gameFiles;
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // SharpCompress could not read the archive. Try the 7za fallback before failing.
+            var fallbackResult = await TryCalculateArchiveHashesWithSevenZipAsync(fileInfo, filePath, ex,
+                cancellationToken).ConfigureAwait(false);
+            if (fallbackResult != null)
+            {
+                return fallbackResult;
+            }
+
+            if (FileSystemHelper.IsDiskFullError(ex))
+            {
+                LoggerService.LogException("HashCalculator", ex,
+                    $"Archive processing failed for file '{fileInfo.Name}' - DISK FULL");
+            }
+            else
+            {
+                LoggerService.LogInfo("HashCalculator",
+                    $"Could not read archive '{fileInfo.Name}': {ex.Message}");
+            }
+
+            // Return an error object for the archive itself so the UI knows extraction failed.
+            // We do NOT hash the container anymore.
+            return
+            [
+                CreateArchiveErrorGameFile(fileInfo.Name, GetFileSizeSafe(fileInfo),
+                    "The archive file appears to be corrupted, incomplete, or in an unsupported format. The file may be damaged or not a valid archive.")
+            ];
+        }
+    }
+
+    /// <summary>
+    /// Extracts an archive with 7za and calculates hashes for the extracted files.
+    /// </summary>
+    /// <param name="fileInfo">Information about the archive file.</param>
+    /// <param name="filePath">The path to the archive file.</param>
+    /// <param name="primaryException">The SharpCompress failure that triggered the fallback.</param>
+    /// <param name="cancellationToken">Cancellation token to stop the operation.</param>
+    /// <returns>The hash results, or null when the fallback could not read the archive.</returns>
+    private static async Task<List<GameFile>?> TryCalculateArchiveHashesWithSevenZipAsync(FileInfo fileInfo,
+        string filePath, Exception primaryException, CancellationToken cancellationToken)
+    {
+        if (!SevenZipProcess.IsAvailable || FileSystemHelper.IsDiskFullError(primaryException))
+        {
+            return null;
+        }
+
+        var tempDir = TempDirectoryHelper.CreateTempDirectory("romvalidator_7za");
+        try
+        {
+            var extracted =
+                await SevenZipProcess.ExtractArchiveAsync(filePath, tempDir, cancellationToken).ConfigureAwait(false);
+            if (!extracted)
+            {
+                return null;
+            }
+
+            var extractedFiles = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
+            if (extractedFiles.Length == 0)
+            {
+                return null;
+            }
+
+            LoggerService.LogInfo("HashCalculator",
+                $"Archive '{fileInfo.Name}' was read using the 7za fallback.");
+
+            var gameFiles = new List<GameFile>(extractedFiles.Length);
+            foreach (var extractedFile in extractedFiles)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                using var crc32 = new Crc32Algorithm();
+                using var md5 = MD5.Create();
+                using var sha1 = SHA1.Create();
+                using var sha256 = SHA256.Create();
+
+                var gameFile = await ProcessFileAsync(extractedFile, new FileInfo(extractedFile),
+                    crc32, md5, sha1, sha256, cancellationToken).ConfigureAwait(false);
+
+                if (gameFile != null)
+                {
+                    gameFile.FileName = Path.GetRelativePath(tempDir, extractedFile).Replace('\\', '/');
+                    gameFile.GameName = Path.GetFileNameWithoutExtension(gameFile.FileName);
+                    gameFile.ArchiveFileName = fileInfo.Name;
+                    gameFiles.Add(gameFile);
+                }
+            }
+
+            return gameFiles;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception fallbackEx)
+        {
+            LoggerService.LogInfo("HashCalculator",
+                $"7za fallback failed for archive '{fileInfo.Name}': {fallbackEx.Message}");
+            return null;
+        }
+        finally
+        {
+            await TempDirectoryHelper.CleanupTempDirectoryAsync(tempDir).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Creates an error result for an archive or archive entry.
+    /// </summary>
+    /// <param name="fileName">The archive or entry name.</param>
+    /// <param name="fileSize">The uncompressed size in bytes.</param>
+    /// <param name="errorMessage">The user-facing error message.</param>
+    /// <returns>A <see cref="GameFile"/> marked with error hashes.</returns>
+    private static GameFile CreateArchiveErrorGameFile(string fileName, long fileSize, string errorMessage)
+    {
+        return new GameFile
+        {
+            FileName = fileName,
+            GameName = Path.GetFileNameWithoutExtension(fileName),
+            FileSize = fileSize,
+            ErrorMessage = errorMessage,
+            IsUserError = true,
+            Crc32 = "ERROR",
+            Md5 = "ERROR",
+            Sha1 = "ERROR",
+            Sha256 = "ERROR"
+        };
     }
 
     private static async Task<GameFile?> ProcessFileAsync(
         string filePath,
         FileInfo fileInfo,
         Crc32Algorithm crc32, MD5 md5, SHA1 sha1, SHA256 sha256,
-        CancellationToken cancellationToken,
-        BugReportService? bugReportService = null)
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -380,8 +316,7 @@ public static partial class HashCalculator
                 fileStream,
                 fileInfo.Name,
                 crc32, md5, sha1, sha256,
-                cancellationToken,
-                bugReportService).ConfigureAwait(false);
+                cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -389,12 +324,12 @@ public static partial class HashCalculator
         }
         catch (Exception ex)
         {
-            _ = bugReportService?.SendBugReportAsync($"Error processing file '{fileInfo.Name}'", ex);
+            LoggerService.LogException("HashCalculator", ex, $"Error processing file '{fileInfo.Name}'");
             return new GameFile
             {
                 FileName = fileInfo.Name,
                 GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                FileSize = fileInfo.Length,
+                FileSize = GetFileSizeSafe(fileInfo),
                 ErrorMessage = ex.Message,
                 Crc32 = "ERROR",
                 Md5 = "ERROR",
@@ -404,25 +339,49 @@ public static partial class HashCalculator
         }
     }
 
+    /// <summary>
+    /// Safely reads the file length, returning 0 when the file no longer exists or
+    /// the length cannot be read (e.g. the path is a directory). This prevents the
+    /// error-handling path itself from throwing.
+    /// </summary>
+    /// <param name="fileInfo">The file information to inspect.</param>
+    /// <returns>The file size in bytes, or 0 when unavailable.</returns>
+    private static long GetFileSizeSafe(FileInfo fileInfo)
+    {
+        try
+        {
+            return fileInfo.Exists ? fileInfo.Length : 0;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogDebug("HashCalculator",
+                $"Could not read size for '{fileInfo.Name}': {ex.Message}");
+            return 0;
+        }
+    }
+
     private static async Task<GameFile?> ProcessStreamAsync(
         Stream stream,
         string fileName,
         Crc32Algorithm crc32, MD5 md5, SHA1 sha1, SHA256 sha256,
         CancellationToken cancellationToken,
-        BugReportService? bugReportService = null)
+        long? knownSize = null)
     {
-        // Some streams may not support Length
-        long fileSize = 0;
-        try
+        // Use the size reported by the archive when the stream itself cannot provide it
+        long fileSize = knownSize ?? 0;
+        if (knownSize == null)
         {
-            if (stream.CanSeek)
+            try
             {
-                fileSize = stream.Length;
+                if (stream.CanSeek)
+                {
+                    fileSize = stream.Length;
+                }
             }
-        }
-        catch (NotSupportedException)
-        {
-            // Length not supported, leave as 0
+            catch (NotSupportedException)
+            {
+                // Length not supported, leave as 0
+            }
         }
 
         var gameFile = new GameFile
@@ -479,7 +438,8 @@ public static partial class HashCalculator
             {
                 // Win32 ERROR_CRC: the data cannot be read from the medium (bad sectors,
                 // corrupted file, failing disk). Retrying will not help and this is a
-                // user hardware/environment issue, not an app bug — no bug report.
+                // user hardware/environment issue, not an app bug.
+                LoggerService.LogInfo("HashCalculator", $"CRC read error for file '{fileName}': {ex.Message}");
                 gameFile.ErrorMessage =
                     "The file cannot be read: data error (CRC). The file or the disk it is stored on may be corrupted.";
                 gameFile.Crc32 = "ERROR";
@@ -492,6 +452,8 @@ public static partial class HashCalculator
             {
                 if (attempt == maxRetries - 1)
                 {
+                    LoggerService.LogInfo("HashCalculator",
+                        $"File '{fileName}' is locked or access denied after {maxRetries} attempts");
                     gameFile.ErrorMessage = "File is locked or access denied after retries";
                     return gameFile;
                 }
@@ -507,13 +469,15 @@ public static partial class HashCalculator
                 else
                 {
                     // Archive streams don't support seeking, so we can't retry
+                    LoggerService.LogInfo("HashCalculator",
+                        $"File access error for '{fileName}' on a non-seekable stream");
                     gameFile.ErrorMessage = "File access error (non-seekable stream)";
                     return gameFile;
                 }
             }
             catch (Exception ex)
             {
-                _ = bugReportService?.SendBugReportAsync($"Error hashing stream for file '{fileName}'", ex);
+                LoggerService.LogException("HashCalculator", ex, $"Error hashing stream for file '{fileName}'");
                 gameFile.ErrorMessage = ex.Message;
                 gameFile.Crc32 = "ERROR";
                 gameFile.Md5 = "ERROR";
@@ -523,14 +487,22 @@ public static partial class HashCalculator
             }
         }
 
-        _ = bugReportService?.SendBugReportAsync("Unexpected exit from retry loop in ProcessStreamAsync",
-            new InvalidOperationException("Retry loop exceeded max attempts without returning or throwing"));
+        LoggerService.LogException("HashCalculator",
+            new InvalidOperationException("Retry loop exceeded max attempts without returning or throwing"),
+            $"Unexpected exit from retry loop while hashing '{fileName}'");
         gameFile.ErrorMessage = "Unexpected error during hash calculation";
         return gameFile;
     }
 
+    /// <summary>
+    /// Determines whether the specified file name has a supported archive extension
+    /// (.zip, .7z, or .rar).
+    /// </summary>
+    /// <param name="fileName">The file name (or path) to test.</param>
+    /// <returns>True when the file is treated as an archive.</returns>
     public static bool IsArchiveFile(string fileName)
     {
+        ArgumentNullException.ThrowIfNull(fileName);
         return SArchiveExtensionRegex.IsMatch(fileName);
     }
 
@@ -544,7 +516,7 @@ public static partial class HashCalculator
     {
         // Prefer native error codes (language-independent):
         // 32 = ERROR_SHARING_VIOLATION, 33 = ERROR_LOCK_VIOLATION.
-        // Falls back to message text for non-Win32 IOExceptions (e.g. from SharpSevenZip).
+        // Falls back to message text for non-Win32 IOExceptions (e.g. from archive readers).
         if (ex.InnerException is Win32Exception { NativeErrorCode: 32 or 33 })
         {
             return true;

@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Windows;
@@ -11,10 +10,13 @@ using System.Xml.Serialization;
 using Microsoft.Win32;
 using RomValidator.Models.NoIntro;
 using RomValidator.Services;
-using SharpSevenZip;
 
 namespace RomValidator.Pages;
 
+/// <summary>
+/// Page that validates ROM files in a folder against a No-Intro DAT file.
+/// Supports moving, renaming, and deleting files based on the validation result.
+/// </summary>
 public partial class ValidatePage : IDisposable
 {
     private readonly MainWindow _mainWindow;
@@ -53,13 +55,6 @@ public partial class ValidatePage : IDisposable
             DisplayInstructions();
             ClearDatInfoDisplay();
             _mainWindow.UpdateStatusBarMessage("Ready.");
-            _ = CheckForUpdatesOnStartupAsync().ContinueWith(static t =>
-            {
-                if (t.IsFaulted)
-                {
-                    LoggerService.LogError("Startup", $"Update check failed: {t.Exception?.InnerException?.Message}");
-                }
-            }, TaskContinuationOptions.OnlyOnFaulted);
         }
         catch (Exception ex)
         {
@@ -100,45 +95,6 @@ public partial class ValidatePage : IDisposable
         LogMessage("4. Click 'Start Validation'.");
         LogMessage("");
         LogMessage("--- Ready for validation ---");
-    }
-
-    private async Task CheckForUpdatesOnStartupAsync()
-    {
-        _mainWindow.UpdateStatusBarMessage("Checking for updates...");
-        var (isNewVersionAvailable, releaseUrl, latestVersionTag) =
-            await _mainWindow.VersionChecker.CheckForNewVersionAsync();
-
-        if (isNewVersionAvailable && releaseUrl != null && latestVersionTag != null)
-        {
-            var currentVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown";
-            LogMessage($"A new version ({latestVersionTag}) is available! Your current version is {currentVersion}.");
-            _mainWindow.UpdateStatusBarMessage($"New version {latestVersionTag} available!");
-
-            var result = MessageBox.Show(
-                $"A new version ({latestVersionTag}) of ROM Validator is available!\n\n" +
-                $"Your current version: {currentVersion}\n\n" +
-                "Would you like to go to the release page to download it?",
-                "New Version Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                try
-                {
-                    Process.Start(new ProcessStartInfo(releaseUrl) { UseShellExecute = true });
-                }
-                catch (Exception ex)
-                {
-                    ShowError($"Could not open release page: {ex.Message}");
-                    _ = _mainWindow.BugReportService.SendBugReportAsync(
-                        $"Error opening GitHub release page: {releaseUrl}", ex);
-                }
-            }
-        }
-        else
-        {
-            LogMessage("No new version found or unable to check for updates.");
-            _mainWindow.UpdateStatusBarMessage("Application is up to date.");
-        }
     }
 
     private async void StartValidationButton_ClickAsync(object sender, RoutedEventArgs e)
@@ -288,6 +244,7 @@ public partial class ValidatePage : IDisposable
 
             var successPath = Path.Combine(romsFolderPath, "_success");
             var failPath = Path.Combine(romsFolderPath, "_fail");
+            var duplicatePath = Path.Combine(romsFolderPath, "_duplicate");
             if (moveSuccess) Directory.CreateDirectory(successPath);
             if (moveFailed) Directory.CreateDirectory(failPath);
 
@@ -339,8 +296,8 @@ public partial class ValidatePage : IDisposable
                     break;
                 }
 
-                await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, deleteFailed,
-                    renameMatched, token);
+                await ProcessFileAsync(filePath, successPath, failPath, duplicatePath, moveSuccess, moveFailed,
+                    deleteFailed, renameMatched, token);
 
                 var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
                 UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
@@ -360,8 +317,8 @@ public partial class ValidatePage : IDisposable
         }
     }
 
-    private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess,
-        bool moveFailed, bool deleteFailed, bool renameMatched, CancellationToken token)
+    private async Task ProcessFileAsync(string filePath, string successPath, string failPath, string duplicatePath,
+        bool moveSuccess, bool moveFailed, bool deleteFailed, bool renameMatched, CancellationToken token)
     {
         var fileName = Path.GetFileName(filePath);
         token.ThrowIfCancellationRequested();
@@ -439,12 +396,14 @@ public partial class ValidatePage : IDisposable
                     {
                         await RenameFileAsync(filePath, newFilePath);
 
-                        // If this is an archive, also rename the file inside to match the DAT entry
+                        // If this is an archive, also rename the file inside to match the DAT entry.
+                        // RAR archives are converted to ZIP, so track the final path that exists on disk.
                         if (HashCalculator.IsArchiveFile(fileName))
                         {
                             try
                             {
-                                await RenameFileInsideArchiveAsync(newFilePath, hashMatchedRom.Name);
+                                newFilePath = await RenameFileInsideArchiveAsync(newFilePath, hashMatchedRom.Name);
+                                displayName = Path.GetFileName(newFilePath);
                             }
                             catch (Exception archiveEx)
                             {
@@ -452,7 +411,7 @@ public partial class ValidatePage : IDisposable
                                 // The file was already renamed successfully, only the internal archive rename failed
                                 LogMessage(
                                     $"[WARNING] {fileName} -> {displayName} renamed, but failed to rename content inside archive: {archiveEx.Message}");
-                                if (IsDiskFullError(archiveEx))
+                                if (FileSystemHelper.IsDiskFullError(archiveEx))
                                 {
                                     _ = _mainWindow.BugReportService.SendBugReportAsync(
                                         $"Error renaming file inside archive '{newFilePath}' to '{hashMatchedRom.Name}'",
@@ -480,10 +439,7 @@ public partial class ValidatePage : IDisposable
                         LogMessage(
                             $"[DUPLICATE] {fileName} - {matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)} (destination {displayName} already exists)");
 
-                        // Move duplicate to dedicated _duplicate folder
-                        var duplicatePath =
-                            Path.Combine(Path.GetDirectoryName(filePath) ?? throw new InvalidOperationException(),
-                                "_duplicate");
+                        // Move duplicate to the shared _duplicate folder at the scan root
                         Directory.CreateDirectory(duplicatePath);
                         await MoveFileAsync(filePath, Path.Combine(duplicatePath, fileName));
 
@@ -513,11 +469,16 @@ public partial class ValidatePage : IDisposable
             }
         }
 
-        // If filename matches DAT but it's an archive and rename is enabled, check/fix internal filenames too
+        // If filename matches DAT but it's an archive and rename is enabled, check/fix internal filenames too.
+        // RAR archives are converted to ZIP, so update the path/filename to the final archive on disk.
         if (fileNameMatch && expectedRoms is { Count: > 0 } && renameMatched && HashCalculator.IsArchiveFile(fileName))
         {
-            // Check if the internal file(s) need renaming
-            await FixArchiveInternalFilenamesAsync(filePath, expectedRoms, fileName);
+            var fixedArchivePath = await FixArchiveInternalFilenamesAsync(filePath, expectedRoms, fileName);
+            if (!string.Equals(fixedArchivePath, filePath, StringComparison.OrdinalIgnoreCase))
+            {
+                filePath = fixedArchivePath;
+                fileName = Path.GetFileName(fixedArchivePath);
+            }
         }
 
         if (!fileNameMatch || expectedRoms == null || expectedRoms.Count == 0)
@@ -608,7 +569,7 @@ public partial class ValidatePage : IDisposable
         try
         {
             // Use HashCalculator to properly handle archives - extracts and hashes contents
-            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token, _mainWindow.BugReportService);
+            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token);
 
             // Check if extraction failed
             if (gameFiles.Count == 1 && !string.IsNullOrEmpty(gameFiles[0].ErrorMessage))
@@ -692,8 +653,8 @@ public partial class ValidatePage : IDisposable
         catch (IOException ex)
         {
             // Corrupted/unreadable files are user-environment issues, not application bugs:
-            // log the warning locally but do NOT send a bug report.
-            LoggerService.LogWarning("Validation", $"IO error reading file '{filePath}': {ex.Message}");
+            // log locally at Information level so no bug report is sent.
+            LoggerService.LogInfo("Validation", $"IO error reading file '{filePath}': {ex.Message}");
             return (false, $"File I/O error (file may be corrupted or unreadable): {ex.Message}");
         }
         catch (Exception ex)
@@ -752,8 +713,9 @@ public partial class ValidatePage : IDisposable
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                LoggerService.LogDebug("ValidatePage", $"Could not read DAT file preview: {ex.Message}");
                 datFilePreview = "[Could not read file preview]";
             }
 
@@ -1307,7 +1269,7 @@ public partial class ValidatePage : IDisposable
         try
         {
             // Use HashCalculator to properly handle archives - extracts and hashes contents
-            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token, _mainWindow.BugReportService);
+            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token);
 
             // Check if extraction failed
             if (gameFiles.Count == 1 && !string.IsNullOrEmpty(gameFiles[0].ErrorMessage))
@@ -1429,7 +1391,7 @@ public partial class ValidatePage : IDisposable
                 LogMessage($"   -> File not found, cannot move: {Path.GetFileName(sourcePath)}");
                 return;
             }
-            catch (IOException ex) when (IsDiskFullError(ex))
+            catch (IOException ex) when (FileSystemHelper.IsDiskFullError(ex))
             {
                 LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)}: Disk is full.");
                 _mainWindow.UpdateStatusBarMessage("Cannot move file - disk is full.");
@@ -1495,17 +1457,6 @@ public partial class ValidatePage : IDisposable
         return newDestPath;
     }
 
-    private static bool IsDiskFullError(Exception ex)
-    {
-        const int errorDiskFull = unchecked((int)0x80070070);
-        if (ex.HResult == errorDiskFull) return true;
-
-        var msg = ex.Message;
-        return msg.Contains("not enough space", StringComparison.OrdinalIgnoreCase) ||
-               msg.Contains("disk full", StringComparison.OrdinalIgnoreCase) ||
-               msg.Contains("ERROR_DISK_FULL", StringComparison.OrdinalIgnoreCase);
-    }
-
     /// <summary>
     /// Prepares a temporary directory with sufficient disk space for archive processing.
     /// Tries the default temp path first, then falls back to other drives.
@@ -1516,19 +1467,6 @@ public partial class ValidatePage : IDisposable
     /// <returns>The path to a temporary directory, or null if no suitable location was found.</returns>
     private string? PrepareArchiveTempDirectory(string archivePath, string archiveFileName)
     {
-        try
-        {
-            HashCalculator.InitializeSevenZip();
-        }
-        catch (Exception initEx)
-        {
-            var warning =
-                $"[WARNING] Failed to initialize SevenZipSharp for archive '{archiveFileName}'. Skipping archive processing.";
-            LogMessage(warning);
-            _ = _mainWindow.BugReportService.SendBugReportAsync(warning, initEx);
-            return null;
-        }
-
         long requiredSpace;
         try
         {
@@ -1536,8 +1474,10 @@ public partial class ValidatePage : IDisposable
             var archiveSize = new FileInfo(archivePath).Length;
             requiredSpace = (uncompressedSize * 2) + (archiveSize * 2);
         }
-        catch
+        catch (Exception ex)
         {
+            LoggerService.LogDebug("ValidatePage",
+                $"Could not determine archive size for '{archiveFileName}': {ex.Message}");
             requiredSpace = 1024L * 1024 * 1024; // 1GB fallback if size cannot be determined
         }
 
@@ -1864,65 +1804,36 @@ public partial class ValidatePage : IDisposable
     /// If the internal filename doesn't match the expected ROM name, renames it.
     /// This is called when the outer archive filename already matches the DAT.
     /// </summary>
-    private async Task FixArchiveInternalFilenamesAsync(string archivePath, List<Rom> expectedRoms,
+    /// <param name="archivePath">Path to the archive file.</param>
+    /// <param name="expectedRoms">The expected ROM entries from the DAT file.</param>
+    /// <param name="archiveFileName">The archive file name used for logging.</param>
+    /// <returns>The path to the archive after processing (unchanged when no fix was needed).</returns>
+    private async Task<string> FixArchiveInternalFilenamesAsync(string archivePath, List<Rom> expectedRoms,
         string archiveFileName)
     {
         var tempDir = PrepareArchiveTempDirectory(archivePath, archiveFileName);
         if (tempDir == null)
         {
-            return; // Disk space exhausted or initialization failed - skip this archive
+            return archivePath; // Disk space exhausted or initialization failed - skip this archive
         }
-
-        var is7ZFile = archivePath.EndsWith(".7z", StringComparison.OrdinalIgnoreCase);
-        var isRarFile = archivePath.EndsWith(".rar", StringComparison.OrdinalIgnoreCase);
-        // RAR files cannot be created, so they will be repacked as ZIP
-        var outputArchivePath = isRarFile ? Path.ChangeExtension(archivePath, ".zip") : archivePath;
 
         try
         {
-            // Extract archive contents using SevenZipSharp
-            List<string> extractedFiles;
-            try
+            var extractedFiles = await TryExtractArchiveAsync(archivePath, tempDir, archiveFileName,
+                "internal filename check");
+            if (extractedFiles == null || extractedFiles.Count == 0)
             {
-                await Task.Run(() =>
-                {
-                    using var extractor = new SharpSevenZipExtractor(archivePath);
-                    extractor.ExtractArchive(tempDir);
-                });
-                extractedFiles = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories).ToList();
-            }
-            catch (Exception extractEx)
-            {
-                var errorMsg = $"Failed to extract archive '{archiveFileName}' for internal filename check";
-                if (IsDiskFullError(extractEx))
-                {
-                    LoggerService.LogError("FixArchiveInternal", errorMsg + " - DISK FULL");
-                    _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, extractEx);
-                }
-                else
-                {
-                    LoggerService.LogWarning("FixArchiveInternal", errorMsg + $": {extractEx.Message}");
-                    LogMessage(
-                        $"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping internal filename check.");
-                }
-
-                return; // Don't fail the entire operation
-            }
-
-            if (extractedFiles.Count == 0)
-            {
-                return; // Empty archive, nothing to fix
+                return archivePath; // Extraction failed or archive is empty, nothing to fix
             }
 
             // Build a mapping of which files need to be renamed
-            // Key: original file path, Value: new filename (or null if no change needed)
-            var renameMapping = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            var renameMapping = new List<(string OriginalPath, string NewName)>();
             var anyRenameNeeded = false;
 
             foreach (var sourceFile in extractedFiles)
             {
                 var sourceFileName = Path.GetFileName(sourceFile);
-                string? targetFileName = null;
+                var targetFileName = sourceFileName;
 
                 // Find the expected ROM that matches this internal file
                 foreach (var expectedRom in expectedRoms)
@@ -1942,114 +1853,252 @@ public partial class ValidatePage : IDisposable
                     }
                 }
 
-                renameMapping[sourceFile] = targetFileName;
+                renameMapping.Add((sourceFile, targetFileName));
             }
 
             if (!anyRenameNeeded)
             {
-                return; // All internal filenames are correct
+                return archivePath; // All internal filenames are correct
             }
 
-            // Perform the renames
-            var renamedFilesMapping = new List<(string OriginalPath, string NewPath)>();
-            foreach (var (originalPath, newName) in renameMapping)
-            {
-                if (newName != null)
-                {
-                    var newPath =
-                        Path.Combine(Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(),
-                            newName);
-                    if (File.Exists(newPath))
-                    {
-                        File.Delete(newPath);
-                    }
-
-                    File.Move(originalPath, newPath);
-
-                    renamedFilesMapping.Add((newPath, newName));
-                }
-                else
-                {
-                    renamedFilesMapping.Add((originalPath, Path.GetFileName(originalPath)));
-                }
-            }
-
-            // Repackage the archive using SharpSevenZip
-            var tempArchivePath = outputArchivePath + ".tmp";
-            try
-            {
-                await Task.Run(() =>
-                {
-                    var compressor = new SharpSevenZipCompressor
-                    {
-                        ArchiveFormat = is7ZFile ? OutArchiveFormat.SevenZip : OutArchiveFormat.Zip,
-                        CompressionLevel = CompressionLevel.Normal,
-                        CompressionMethod = is7ZFile ? CompressionMethod.Lzma2 : CompressionMethod.Default
-                    };
-
-                    // SharpSevenZip.CompressFileDictionary expects:
-                    //   Key   = archive entry name
-                    //   Value = file path on disk
-                    var filesDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var (filePath, entryName) in renamedFilesMapping)
-                    {
-                        if (File.Exists(filePath))
-                        {
-                            filesDictionary[entryName] = filePath;
-                        }
-                    }
-
-                    if (filesDictionary.Count > 0)
-                    {
-                        compressor.CompressFileDictionary(filesDictionary, tempArchivePath);
-                    }
-                });
-            }
-            catch (Exception compressEx)
-            {
-                var archiveType = is7ZFile ? "7z" : "zip";
-                var errorMsg =
-                    $"Failed to compress {archiveType} archive '{archiveFileName}' after fixing internal filenames";
-                LoggerService.LogError("FixArchiveInternal", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, compressEx);
-                throw new InvalidOperationException($"Archive compression failed: {compressEx.Message}", compressEx);
-            }
-
-            // Delete the original archive only after successful compression
-            try
-            {
-                File.Delete(archivePath);
-            }
-            catch (Exception deleteEx)
-            {
-                var errorMsg = $"Failed to delete original archive '{archiveFileName}' after repackaging";
-                LoggerService.LogError("FixArchiveInternal", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, deleteEx);
-                throw new InvalidOperationException($"Cannot delete original archive: {deleteEx.Message}", deleteEx);
-            }
-
-            // Replace original with newly created archive
-            try
-            {
-                File.Move(tempArchivePath, outputArchivePath, true);
-            }
-            catch (Exception moveEx)
-            {
-                var errorMsg = $"Failed to move repackaged archive '{archiveFileName}' to final location";
-                LoggerService.LogError("FixArchiveInternal", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, moveEx);
-                throw new InvalidOperationException($"Cannot finalize archive: {moveEx.Message}", moveEx);
-            }
+            var finalArchivePath = await RepackArchiveAsync(archivePath, renameMapping, archiveFileName, tempDir);
 
             Interlocked.Increment(ref _renamedCount);
+            var isRarFile = archivePath.EndsWith(".rar", StringComparison.OrdinalIgnoreCase);
             var actionMessage = isRarFile
                 ? $"[RENAMED INTERNAL + CONVERTED TO ZIP] {archiveFileName}"
                 : $"[RENAMED INTERNAL] {archiveFileName}";
             LogMessage($"{actionMessage} - Fixed internal filename(s) to match DAT");
+            return finalArchivePath;
         }
         finally
         {
             await TempDirectoryHelper.CleanupTempDirectoryAsync(tempDir);
+        }
+    }
+
+    /// <summary>
+    /// Extracts an archive into the specified temporary directory.
+    /// Corrupt archives are logged at Information level (no bug report) because they
+    /// are a user-environment condition; disk-full failures are reported.
+    /// </summary>
+    /// <param name="archivePath">Path to the archive file.</param>
+    /// <param name="tempDir">The temporary directory to extract into.</param>
+    /// <param name="archiveFileName">The archive file name used for logging.</param>
+    /// <param name="operationDescription">Description of the operation for messages.</param>
+    /// <returns>The extracted file paths, or null when extraction failed.</returns>
+    private async Task<List<string>?> TryExtractArchiveAsync(string archivePath, string tempDir,
+        string archiveFileName, string operationDescription)
+    {
+        try
+        {
+            await Task.Run(() => ArchiveService.ExtractToDirectory(archivePath, tempDir));
+            return [.. Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories)];
+        }
+        catch (Exception extractEx)
+        {
+            // SharpCompress could not read the archive; try the 7za fallback on a clean directory.
+            try
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+            catch (Exception cleanupEx)
+            {
+                LoggerService.LogDebug("ArchiveRepack",
+                    $"Could not reset temp directory '{tempDir}': {cleanupEx.Message}");
+            }
+
+            var fallbackSucceeded =
+                await SevenZipProcess.ExtractArchiveAsync(archivePath, tempDir, CancellationToken.None);
+            if (fallbackSucceeded)
+            {
+                LoggerService.LogInfo("ArchiveRepack",
+                    $"Archive '{archiveFileName}' was extracted using the 7za fallback.");
+                return [.. Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories)];
+            }
+
+            var errorMsg = $"Failed to extract archive '{archiveFileName}' for {operationDescription}";
+            if (FileSystemHelper.IsDiskFullError(extractEx))
+            {
+                LoggerService.LogException("ArchiveRepack", extractEx, errorMsg + " - DISK FULL");
+                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, extractEx);
+            }
+            else
+            {
+                LoggerService.LogInfo("ArchiveRepack", $"{errorMsg}: {extractEx.Message}");
+                LogMessage(
+                    $"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping {operationDescription}.");
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Repacks an archive after its internal files were renamed: renames the extracted
+    /// files on disk, compresses them into a temporary archive, replaces the original
+    /// and finalizes the output. Zip archives are created with SharpCompress; 7z
+    /// archives are created with the 7za fallback; RAR archives are converted to ZIP
+    /// because RAR creation is not supported.
+    /// </summary>
+    /// <param name="archivePath">Path of the original archive.</param>
+    /// <param name="fileMapping">Mapping of extracted file paths to their desired entry names.</param>
+    /// <param name="archiveFileName">The archive file name used for logging.</param>
+    /// <param name="tempDir">Temporary directory used for staging the files.</param>
+    /// <returns>The final archive path (a ZIP path when a RAR was converted).</returns>
+    private async Task<string> RepackArchiveAsync(string archivePath,
+        List<(string OriginalPath, string NewName)> fileMapping, string archiveFileName, string tempDir)
+    {
+        var is7ZFile = archivePath.EndsWith(".7z", StringComparison.OrdinalIgnoreCase);
+        var isRarFile = archivePath.EndsWith(".rar", StringComparison.OrdinalIgnoreCase);
+        var outputArchivePath = isRarFile ? Path.ChangeExtension(archivePath, ".zip") : archivePath;
+
+        // Rename the extracted files on disk before compression
+        var renamedFiles = new List<(string Path, string EntryName)>();
+        foreach (var (originalPath, newName) in fileMapping)
+        {
+            var newPath = Path.Combine(
+                Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(
+                    "Could not determine directory for extracted archive file."),
+                newName);
+
+            if (!string.Equals(Path.GetFileName(originalPath), newName, StringComparison.OrdinalIgnoreCase))
+            {
+                if (File.Exists(newPath))
+                {
+                    File.Delete(newPath);
+                }
+
+                File.Move(originalPath, newPath);
+            }
+            else
+            {
+                newPath = originalPath; // Same file, no rename needed
+            }
+
+            renamedFiles.Add((newPath, newName));
+        }
+
+        var tempArchivePath = outputArchivePath + ".tmp";
+        try
+        {
+            await CreateArchiveFromRenamedFilesAsync(renamedFiles, tempArchivePath, is7ZFile, tempDir);
+        }
+        catch (Exception compressEx)
+        {
+            var archiveType = is7ZFile ? "7z" : "zip";
+            var errorMsg = $"Failed to compress {archiveType} archive '{archiveFileName}' after fixing internal filenames";
+            LoggerService.LogException("ArchiveRepack", compressEx, errorMsg);
+            _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, compressEx);
+            throw new InvalidOperationException($"Archive compression failed: {compressEx.Message}", compressEx);
+        }
+
+        // Delete the original archive only after successful compression
+        try
+        {
+            File.Delete(archivePath);
+        }
+        catch (Exception deleteEx)
+        {
+            var errorMsg = $"Failed to delete original archive '{archiveFileName}' after repackaging";
+            LoggerService.LogException("ArchiveRepack", deleteEx, errorMsg);
+            _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, deleteEx);
+            throw new InvalidOperationException($"Cannot delete original archive: {deleteEx.Message}", deleteEx);
+        }
+
+        // Replace original with newly created archive
+        try
+        {
+            File.Move(tempArchivePath, outputArchivePath, true);
+        }
+        catch (Exception moveEx)
+        {
+            var errorMsg = $"Failed to move repackaged archive '{archiveFileName}' to final location";
+            LoggerService.LogException("ArchiveRepack", moveEx, errorMsg);
+            _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, moveEx);
+            throw new InvalidOperationException($"Cannot finalize archive: {moveEx.Message}", moveEx);
+        }
+
+        return outputArchivePath;
+    }
+
+    /// <summary>
+    /// Creates the repackaged archive with SharpCompress (zip and 7z) and falls back
+    /// to the bundled 7za executable when SharpCompress cannot create the archive.
+    /// </summary>
+    /// <param name="renamedFiles">Files on disk with their desired entry names.</param>
+    /// <param name="tempArchivePath">Temporary output archive path.</param>
+    /// <param name="is7ZFile">True when the archive is a 7z archive.</param>
+    /// <param name="tempDir">Temporary directory used for staging 7za input files.</param>
+    private static async Task CreateArchiveFromRenamedFilesAsync(
+        List<(string Path, string EntryName)> renamedFiles, string tempArchivePath, bool is7ZFile, string tempDir)
+    {
+        var missingFiles = renamedFiles.Where(static file => !File.Exists(file.Path)).ToList();
+        if (missingFiles.Count > 0)
+        {
+            throw new FileNotFoundException(
+                $"Cannot create archive: {missingFiles.Count} file(s) not found in temp directory: " +
+                string.Join(", ", missingFiles.Select(static file => $"'{file.Path}' (expected entry name: '{file.EntryName}')")) +
+                ". This may indicate the archive structure changed during extraction or files were moved unexpectedly.");
+        }
+
+        if (renamedFiles.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "No files available to create archive. All extracted files are missing from temp directory.");
+        }
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                if (is7ZFile)
+                {
+                    ArchiveService.Create7ZArchive(renamedFiles, tempArchivePath);
+                }
+                else
+                {
+                    ArchiveService.CreateZipArchive(renamedFiles, tempArchivePath);
+                }
+            });
+            return;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogInfo("ArchiveRepack",
+                $"SharpCompress could not create the archive: {ex.Message}. Falling back to 7za.");
+        }
+
+        // Remove any partially written archive before the fallback runs
+        try
+        {
+            if (File.Exists(tempArchivePath))
+            {
+                File.Delete(tempArchivePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogDebug("ArchiveRepack", $"Could not remove partial archive '{tempArchivePath}': {ex.Message}");
+        }
+
+        // Stage the files with their entry names at the root and invoke the bundled 7za executable.
+        var stagingDirectory = Path.Combine(tempDir, "staging");
+        Directory.CreateDirectory(stagingDirectory);
+        foreach (var (filePath, entryName) in renamedFiles)
+        {
+            File.Move(filePath, Path.Combine(stagingDirectory, entryName), true);
+        }
+
+        var created = await SevenZipProcess.CreateArchiveAsync(stagingDirectory, tempArchivePath, is7ZFile,
+            CancellationToken.None);
+        if (!created)
+        {
+            throw new InvalidOperationException(
+                "Failed to create the archive. The bundled 7za executable may be missing or the files could not be compressed.");
         }
     }
 
@@ -2111,19 +2160,24 @@ public partial class ValidatePage : IDisposable
 
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            LoggerService.LogInfo("ValidatePage",
+                $"Could not compare internal archive file '{filePath}' with ROM '{expectedRom.Name}': {ex.Message}");
             return false;
         }
     }
 
     /// <summary>
     /// Renames the file inside an archive to match the target name specified in the DAT entry.
-    /// For 7z files: extracts contents, renames file, repackages as 7z using SharpSevenZip.
-    /// For zip files: extracts contents, renames file, repackages as zip using SharpSevenZip.
-    /// For rar files: extracts contents, renames file, converts to zip using SharpSevenZip (RAR creation not supported).
+    /// For 7z files: extracts contents, renames file, repackages as 7z using the 7za fallback.
+    /// For zip files: extracts contents, renames file, repackages as zip using SharpCompress.
+    /// For rar files: extracts contents, renames file, converts to zip using SharpCompress (RAR creation not supported).
     /// </summary>
-    private async Task RenameFileInsideArchiveAsync(string archivePath, string targetFileName)
+    /// <param name="archivePath">Path to the archive file.</param>
+    /// <param name="targetFileName">The desired internal file name from the DAT entry.</param>
+    /// <returns>The path to the final archive (a ZIP path when a RAR was converted).</returns>
+    private async Task<string> RenameFileInsideArchiveAsync(string archivePath, string targetFileName)
     {
         var archiveFileName = Path.GetFileName(archivePath);
         var tempDir = PrepareArchiveTempDirectory(archivePath, archiveFileName);
@@ -2133,47 +2187,20 @@ public partial class ValidatePage : IDisposable
                 "Cannot rename file inside archive: insufficient disk space or initialization failed.");
         }
 
-        var is7ZFile = archivePath.EndsWith(".7z", StringComparison.OrdinalIgnoreCase);
-        var isRarFile = archivePath.EndsWith(".rar", StringComparison.OrdinalIgnoreCase);
-        // RAR files cannot be created, so they will be repacked as ZIP
-        var outputArchivePath = isRarFile ? Path.ChangeExtension(archivePath, ".zip") : archivePath;
-
         try
         {
-            // Extract archive contents using SevenZipSharp
-            try
+            var extractedFiles = await TryExtractArchiveAsync(archivePath, tempDir, archiveFileName,
+                "internal file rename");
+            if (extractedFiles == null)
             {
-                await Task.Run(() =>
-                {
-                    using var extractor = new SharpSevenZipExtractor(archivePath);
-                    extractor.ExtractArchive(tempDir);
-                });
-            }
-            catch (Exception extractEx)
-            {
-                var errorMsg = $"Failed to extract archive '{archiveFileName}' for internal file rename";
-                if (IsDiskFullError(extractEx))
-                {
-                    LoggerService.LogError("RenameInsideArchive", errorMsg + " - DISK FULL");
-                    _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, extractEx);
-                }
-                else
-                {
-                    LoggerService.LogWarning("RenameInsideArchive", errorMsg + $": {extractEx.Message}");
-                    LogMessage(
-                        $"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping internal file rename.");
-                }
-
-                throw new InvalidOperationException($"Archive extraction failed: {extractEx.Message}", extractEx);
+                throw new InvalidOperationException("Archive extraction failed: the archive is corrupt or damaged.");
             }
 
-            // Find the extracted file(s)
-            var extractedFiles = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
-            if (extractedFiles.Length == 0)
+            if (extractedFiles.Count == 0)
             {
                 var errorMsg =
                     $"Archive '{archiveFileName}' is empty or extraction failed - no files found in temp directory";
-                LoggerService.LogWarning("RenameInsideArchive", errorMsg);
+                LoggerService.LogInfo("ArchiveRepack", errorMsg);
                 throw new InvalidOperationException("Archive is empty or extraction failed.");
             }
 
@@ -2201,115 +2228,7 @@ public partial class ValidatePage : IDisposable
                 fileMapping.Add((sourceFile, destFileName));
             }
 
-            // Actually rename the files on disk before compression
-            var renamedFilesMapping = new List<(string OriginalPath, string NewPath)>();
-            foreach (var (originalPath, newName) in fileMapping)
-            {
-                var newPath = Path.Combine(Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(),
-                    newName);
-
-                // Only rename if the name is different
-                if (!string.Equals(Path.GetFileName(originalPath), newName, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (File.Exists(newPath))
-                    {
-                        File.Delete(newPath);
-                    }
-
-                    File.Move(originalPath, newPath);
-                }
-                else
-                {
-                    newPath = originalPath; // Same file, no rename needed
-                }
-
-                renamedFilesMapping.Add((newPath, newName));
-            }
-
-            // Create new archive using SharpSevenZip compressor
-            // For 7Z files: keep as 7Z
-            // For RAR files: convert to ZIP (cannot create RAR)
-            // For ZIP files: keep as ZIP
-            var tempArchivePath = outputArchivePath + ".tmp";
-            try
-            {
-                await Task.Run(() =>
-                {
-                    var compressor = new SharpSevenZipCompressor
-                    {
-                        ArchiveFormat = is7ZFile ? OutArchiveFormat.SevenZip : OutArchiveFormat.Zip,
-                        CompressionLevel = CompressionLevel.Normal,
-                        CompressionMethod = is7ZFile ? CompressionMethod.Lzma2 : CompressionMethod.Default
-                    };
-
-                    // SharpSevenZip.CompressFileDictionary expects:
-                    //   Key   = archive entry name
-                    //   Value = file path on disk
-                    var filesDictionary = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    var missingFiles = new List<string>();
-                    foreach (var (filePath, entryName) in renamedFilesMapping)
-                    {
-                        if (File.Exists(filePath))
-                        {
-                            filesDictionary[entryName] = filePath;
-                        }
-                        else
-                        {
-                            missingFiles.Add($"'{filePath}' (expected entry name: '{entryName}')");
-                        }
-                    }
-
-                    if (missingFiles.Count > 0)
-                    {
-                        throw new FileNotFoundException(
-                            $"Cannot create archive: {missingFiles.Count} file(s) not found in temp directory: {string.Join(", ", missingFiles)}. " +
-                            "This may indicate the archive structure changed during extraction or files were moved unexpectedly.");
-                    }
-
-                    if (filesDictionary.Count == 0)
-                    {
-                        throw new InvalidOperationException(
-                            "No files available to create archive. All extracted files are missing from temp directory.");
-                    }
-
-                    compressor.CompressFileDictionary(filesDictionary, tempArchivePath);
-                });
-            }
-            catch (Exception compressEx)
-            {
-                var archiveType = is7ZFile ? "7z" : "zip";
-                var errorMsg =
-                    $"Failed to compress {archiveType} archive '{archiveFileName}' after renaming internal file";
-                LoggerService.LogError("RenameInsideArchive", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, compressEx);
-                throw new InvalidOperationException($"Archive compression failed: {compressEx.Message}", compressEx);
-            }
-
-            // Delete the original archive only after successful compression
-            try
-            {
-                File.Delete(archivePath);
-            }
-            catch (Exception deleteEx)
-            {
-                var errorMsg = $"Failed to delete original archive '{archiveFileName}' after repackaging";
-                LoggerService.LogError("RenameInsideArchive", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, deleteEx);
-                throw new InvalidOperationException($"Cannot delete original archive: {deleteEx.Message}", deleteEx);
-            }
-
-            // Replace original with newly created archive
-            try
-            {
-                File.Move(tempArchivePath, outputArchivePath, true);
-            }
-            catch (Exception moveEx)
-            {
-                var errorMsg = $"Failed to move repackaged archive '{archiveFileName}' to final location";
-                LoggerService.LogError("RenameInsideArchive", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, moveEx);
-                throw new InvalidOperationException($"Cannot finalize archive: {moveEx.Message}", moveEx);
-            }
+            return await RepackArchiveAsync(archivePath, fileMapping, archiveFileName, tempDir);
         }
         finally
         {

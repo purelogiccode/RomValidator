@@ -1,0 +1,51 @@
+# Jekyll configuration for the ROM Validator documentation site.
+# The site is built from this folder by the "Docs" GitHub Actions workflow and
+# published to GitHub Pages (and mirrored to the repository wiki).
+
+title: ROM Validator
+description: >-
+  Documentation for ROM Validator - validate ROM collections against No-Intro DAT
+  files, detect duplicates, and generate new DAT files.
+
+url: https://purelogiccode.github.io
+baseurl: /RomValidator
+
+# Use the just-the-docs theme from GitHub (supported by GitHub Pages).
+remote_theme: just-the-docs/just-the-docs
+
+# Match the dark theme of the application.
+color_scheme: dark
+
+logo: "/assets/images/logo.png"
+
+search_enabled: true
+heading_anchors: true
+
+aux_links:
+  "ROM Validator on GitHub":
+    - "https://github.com/purelogiccode/RomValidator"
+aux_links_new_tab: true
+
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub"
+gh_edit_repository: "https://github.com/purelogiccode/RomValidator"
+gh_edit_branch: "master"
+gh_edit_source: docs
+gh_edit_view_mode: "tree"
+
+back_to_top: true
+back_to_top_text: "Back to top"
+
+footer_content: >-
+  ROM Validator is licensed under GPLv3. &copy; PureLogicCode.com.
+
+plugins:
+  - jekyll-remote-theme
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default

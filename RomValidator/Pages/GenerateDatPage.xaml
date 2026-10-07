@@ -7,16 +7,18 @@
       Title="Generate DAT File"
       d:DesignHeight="768"
       d:DesignWidth="1024"
-      mc:Ignorable="d">
+      mc:Ignorable="d"
+      ToolTip="Generate a No-Intro DAT file from a folder of ROM files">
 
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Generate DAT File" Style="{StaticResource HeaderTextBlockStyle}" />
+        <TextBlock Grid.Row="0" Text="Generate DAT File" Style="{StaticResource HeaderTextBlockStyle}"
+                   ToolTip="Generate a No-Intro DAT file from the files in a folder" />
 
-        <Grid Grid.Row="1" Margin="0,0,0,15">
+        <Grid Grid.Row="1" Margin="0,0,0,15" ToolTip="Select the folder whose files will be hashed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
@@ -24,25 +26,25 @@
             <Button x:Name="SelectFolderButton" Grid.Column="1" Content="Select Folder" Style="{StaticResource ActionButtonStyle}" Margin="10,0,0,0" Click="SelectFolderButton_Click" ToolTip="Choose a folder to hash its files" />
         </Grid>
 
-        <Grid Grid.Row="2" Margin="0,0,0,15">
+        <Grid Grid.Row="2" Margin="0,0,0,15" ToolTip="Optional DAT file header information">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                <TextBlock Text="Name:" Style="{StaticResource LabelTextBlockStyle}" Margin="0,0,0,5" />
+            <StackPanel Grid.Column="0" Margin="0,0,10,0" ToolTip="DAT file header: Name">
+                <TextBlock Text="Name:" Style="{StaticResource LabelTextBlockStyle}" Margin="0,0,0,5" ToolTip="Name written to the DAT file header" />
                 <TextBox Name="NameTextBox" Style="{StaticResource CustomTextBoxStyle}" ToolTip="DAT file header: Name (e.g., Sega - Mega Drive - Genesis)" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Margin="5,0,5,0">
-                <TextBlock Text="Description:" Style="{StaticResource LabelTextBlockStyle}" Margin="0,0,0,5" />
+            <StackPanel Grid.Column="1" Margin="5,0,5,0" ToolTip="DAT file header: Description">
+                <TextBlock Text="Description:" Style="{StaticResource LabelTextBlockStyle}" Margin="0,0,0,5" ToolTip="Description written to the DAT file header" />
                 <TextBox Name="DescriptionTextBox" Style="{StaticResource CustomTextBoxStyle}" ToolTip="DAT file header: Description" />
             </StackPanel>
-            <StackPanel Grid.Column="2" Margin="10,0,0,0">
-                <TextBlock Text="Author:" Style="{StaticResource LabelTextBlockStyle}" Margin="0,0,0,5" />
+            <StackPanel Grid.Column="2" Margin="10,0,0,0" ToolTip="DAT file header: Author">
+                <TextBlock Text="Author:" Style="{StaticResource LabelTextBlockStyle}" Margin="0,0,0,5" ToolTip="Author written to the DAT file header" />
                 <TextBox Name="AuthorTextBox" Style="{StaticResource CustomTextBoxStyle}" ToolTip="DAT file header: Author" />
             </StackPanel>
         </Grid>
 
-        <Border Grid.Row="3" Style="{StaticResource CardBorderStyle}" Margin="0,10,0,15">
+        <Border Grid.Row="3" Style="{StaticResource CardBorderStyle}" Margin="0,10,0,15" ToolTip="List of files and their calculated hashes">
             <ListView Name="HashListView" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto" AlternationCount="2" ToolTip="List of files and their calculated hashes" ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}">
                 <ListView.View>
                     <GridView>
@@ -57,20 +59,23 @@
             </ListView>
         </Border>
 
-        <Grid Grid.Row="4" Margin="0,0,0,15">
+        <Grid Grid.Row="4" Margin="0,0,0,15" ToolTip="Overall hashing progress and file count">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <Border Grid.Column="0" Style="{StaticResource ProgressBarContainerStyle}" ToolTip="Overall hashing progress">
-                <Grid>
-                    <ProgressBar Name="HashProgressBar" Style="{StaticResource StandardProgressBarStyle}" />
-                    <TextBlock Name="ProgressText" Style="{StaticResource ProgressTextBlockStyle}" />
+                <Grid ToolTip="Overall hashing progress">
+                    <ProgressBar Name="HashProgressBar" Style="{StaticResource StandardProgressBarStyle}"
+                                 ToolTip="Shows how many files have been hashed so far" />
+                    <TextBlock Name="ProgressText" Style="{StaticResource ProgressTextBlockStyle}"
+                               ToolTip="Current hashing progress" />
                 </Grid>
             </Border>
-            <TextBlock Grid.Column="1" Name="FileCountText" Text="No files processed" Margin="10,0,0,0" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Name="FileCountText" Text="No files processed" Margin="10,0,0,0" VerticalAlignment="Center"
+                       ToolTip="Number of files processed during this session" />
         </Grid>
 
-        <UniformGrid Grid.Row="5" Columns="4" HorizontalAlignment="Left">
+        <UniformGrid Grid.Row="5" Columns="4" HorizontalAlignment="Left" ToolTip="Hashing and export actions">
             <Button Name="StartButton" Content="Start Hashing" Style="{StaticResource StartButtonStyle}" Click="StartButton_ClickAsync" IsEnabled="False" ToolTip="Begin hashing files in the selected folder" />
             <Button Name="StopButton" Content="Stop" Style="{StaticResource CancelButtonStyle}" Click="StopButton_Click" IsEnabled="False" ToolTip="Cancel the hashing operation" />
             <Button x:Name="ResetButton" Content="Reset" Style="{StaticResource DownloadButtonStyle}" Click="ResetButton_Click" ToolTip="Clear all data and start over" />

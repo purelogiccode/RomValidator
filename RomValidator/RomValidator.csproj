@@ -15,9 +15,8 @@
         <IsPackable>false</IsPackable>
         <NeutralLanguage>en</NeutralLanguage>
         <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
-        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\RomValidator.xml</DocumentationFile>
-        <NoWarn>$(NoWarn);1591</NoWarn>
         <Company>PureLogicCode.com</Company>
     </PropertyGroup>
 
@@ -28,18 +27,14 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="icon.ico" />
-        <None Remove="images\about.png" />
-        <None Remove="images\exit.png" />
         <None Remove="images\logo.png" />
         <Resource Include="images\logo.png" />
-        <None Update="7z_arm64.dll">
+        <None Update="7za.exe">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
-        <None Update="7z_x64.dll">
+        <None Update="7za_arm64.exe">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
-
     </ItemGroup>
 
     <ItemGroup>
@@ -54,24 +49,8 @@
         <PackageReference Include="Serilog" Version="4.4.0" />
         <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-        <PackageReference Include="SharpSevenZip" Version="2.0.128" />
+        <PackageReference Include="SharpCompress" Version="0.50.4" />
         <PackageReference Include="WPF-UI" Version="4.3.0" />
-    </ItemGroup>
-
-    <!-- Ensure 7z native libraries are copied to output directory with correct naming for each architecture -->
-    <ItemGroup>
-        <!-- x64 architecture library -->
-        <None Include="$(NuGetPackageRoot)\sharpsevenzip\2.0.36\build\x64\7z.dll"
-              Condition="Exists('$(NuGetPackageRoot)\sharpsevenzip\2.0.36\build\x64\7z.dll')">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-            <TargetPath>7z_x64.dll</TargetPath>
-        </None>
-        <!-- ARM64 architecture library -->
-        <None Include="$(NuGetPackageRoot)\sharpsevenzip\2.0.36\build\arm64\7z.dll"
-              Condition="Exists('$(NuGetPackageRoot)\sharpsevenzip\2.0.36\build\arm64\7z.dll')">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-            <TargetPath>7z_arm64.dll</TargetPath>
-        </None>
     </ItemGroup>
 
     <ItemGroup>
@@ -94,10 +73,6 @@
             <XamlRuntime>Wpf</XamlRuntime>
             <SubType>Designer</SubType>
         </Page>
-    </ItemGroup>
-
-    <ItemGroup>
-        <Folder Include="Models\NoIntro\" />
     </ItemGroup>
 
 </Project>

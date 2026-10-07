@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.IO;
-using SharpSevenZip;
 
 namespace RomValidator.Services;
 
@@ -28,14 +27,22 @@ public static class TempDirectoryHelper
     /// <returns>The full path to the created temporary directory.</returns>
     public static string CreateTempDirectory(string prefix = "romvalidator")
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"{prefix}_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        lock (TrackLock)
+        try
         {
-            TrackedDirectories.Add(tempDir);
-        }
+            var tempDir = Path.Combine(Path.GetTempPath(), $"{prefix}_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            lock (TrackLock)
+            {
+                TrackedDirectories.Add(tempDir);
+            }
 
-        return tempDir;
+            return tempDir;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("TempDirectoryHelper", ex, $"Failed to create temp directory with prefix '{prefix}'");
+            throw;
+        }
     }
 
     /// <summary>
@@ -54,7 +61,8 @@ public static class TempDirectoryHelper
         }
         catch (Exception ex)
         {
-            LoggerService.LogWarning("Cleanup", $"Failed to delete temp directory '{tempDir}': {ex.Message}");
+            // Locked temp files (antivirus, indexers) are environmental, not app bugs.
+            LoggerService.LogInfo("Cleanup", $"Failed to delete temp directory '{tempDir}': {ex.Message}");
             ScheduleBackgroundRetry(tempDir);
         }
         finally
@@ -117,7 +125,7 @@ public static class TempDirectoryHelper
             }
             catch
             {
-                LoggerService.LogWarning("Cleanup", $"Could not fully delete '{path}'. Scheduling background retries.");
+                LoggerService.LogInfo("Cleanup", $"Could not fully delete '{path}'. Scheduling background retries.");
                 ScheduleBackgroundRetry(path);
             }
         });
@@ -132,9 +140,10 @@ public static class TempDirectoryHelper
                 File.SetAttributes(file, FileAttributes.Normal);
                 File.Delete(file);
             }
-            catch
+            catch (Exception ex)
             {
                 // Will be retried by background mechanism
+                LoggerService.LogDebug("TempDirectoryHelper", $"Could not delete '{file}': {ex.Message}");
             }
         }
     }
@@ -187,9 +196,11 @@ public static class TempDirectoryHelper
 
                     LoggerService.LogInfo("Cleanup", $"Background retry successfully deleted '{path}'.");
                 }
-                catch
+                catch (Exception ex)
                 {
                     // Will retry on next timer tick
+                    LoggerService.LogDebug("TempDirectoryHelper",
+                        $"Background retry could not delete '{path}' yet: {ex.Message}");
                 }
             }
         }
@@ -232,15 +243,18 @@ public static class TempDirectoryHelper
                         Directory.Delete(path, true);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     // Best effort only - the temp OS will clean these up eventually
+                    LoggerService.LogDebug("TempDirectoryHelper",
+                        $"Shutdown cleanup could not delete '{path}': {ex.Message}");
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Never throw during shutdown
+            LoggerService.LogDebug("TempDirectoryHelper", $"Shutdown cleanup failed: {ex.Message}");
         }
     }
 
@@ -249,15 +263,22 @@ public static class TempDirectoryHelper
     /// </summary>
     public static async Task CleanupAllTrackedDirectoriesAsync()
     {
-        List<string> toClean;
-        lock (TrackLock)
+        try
         {
-            toClean = [.. TrackedDirectories];
-        }
+            List<string> toClean;
+            lock (TrackLock)
+            {
+                toClean = [.. TrackedDirectories];
+            }
 
-        foreach (var dir in toClean)
+            foreach (var dir in toClean)
+            {
+                await CleanupTempDirectoryAsync(dir);
+            }
+        }
+        catch (Exception ex)
         {
-            await CleanupTempDirectoryAsync(dir);
+            LoggerService.LogException("TempDirectoryHelper", ex, "Error cleaning up tracked temp directories");
         }
     }
 
@@ -278,8 +299,9 @@ public static class TempDirectoryHelper
 
             return drive.AvailableFreeSpace;
         }
-        catch
+        catch (Exception ex)
         {
+            LoggerService.LogDebug("TempDirectoryHelper", $"Could not read free space for '{path}': {ex.Message}");
             return null;
         }
     }
@@ -297,49 +319,59 @@ public static class TempDirectoryHelper
     {
         warning = null;
 
-        // 1. Try default temp path first
-        var defaultTemp = Path.GetTempPath();
-        var defaultSpace = GetAvailableFreeSpace(defaultTemp);
-        if (defaultSpace >= requiredBytes)
+        try
         {
-            return CreateTempDirectory();
-        }
-
-        warning =
-            $"[WARNING] Default temp drive ({Path.GetPathRoot(defaultTemp)}) has insufficient space ({FormatBytes(defaultSpace ?? 0)} available, {FormatBytes(requiredBytes)} required).";
-
-        // 2. Try the drive where the context file is located
-        var contextDrive = Path.GetPathRoot(contextPath);
-        if (!string.IsNullOrEmpty(contextDrive) &&
-            !string.Equals(contextDrive, Path.GetPathRoot(defaultTemp), StringComparison.OrdinalIgnoreCase))
-        {
-            var contextSpace = GetAvailableFreeSpace(contextDrive);
-            if (contextSpace >= requiredBytes)
+            // 1. Try default temp path first
+            var defaultTemp = Path.GetTempPath();
+            var defaultSpace = GetAvailableFreeSpace(defaultTemp);
+            if (defaultSpace >= requiredBytes)
             {
-                var dir = CreateTempDirectoryInPath(contextDrive, "romvalidator");
-                return dir;
+                return CreateTempDirectory();
             }
 
-            warning +=
-                $" Context drive ({contextDrive}) also has insufficient space ({FormatBytes(contextSpace ?? 0)} available).";
-        }
+            warning =
+                $"[WARNING] Default temp drive ({Path.GetPathRoot(defaultTemp)}) has insufficient space ({FormatBytes(defaultSpace ?? 0)} available, {FormatBytes(requiredBytes)} required).";
 
-        // 3. Try all other ready drives
-        foreach (var drive in DriveInfo.GetDrives().Where(static d => d.IsReady))
-        {
-            var driveRoot = drive.Name;
-            if (string.Equals(driveRoot, Path.GetPathRoot(defaultTemp), StringComparison.OrdinalIgnoreCase)) continue;
-            if (string.Equals(driveRoot, contextDrive, StringComparison.OrdinalIgnoreCase)) continue;
-
-            if (drive.AvailableFreeSpace >= requiredBytes)
+            // 2. Try the drive where the context file is located
+            var contextDrive = Path.GetPathRoot(contextPath);
+            if (!string.IsNullOrEmpty(contextDrive) &&
+                !string.Equals(contextDrive, Path.GetPathRoot(defaultTemp), StringComparison.OrdinalIgnoreCase))
             {
-                var dir = CreateTempDirectoryInPath(driveRoot, "romvalidator");
-                return dir;
-            }
-        }
+                var contextSpace = GetAvailableFreeSpace(contextDrive);
+                if (contextSpace >= requiredBytes)
+                {
+                    var dir = CreateTempDirectoryInPath(contextDrive, "romvalidator");
+                    return dir;
+                }
 
-        warning += " No available drive has sufficient space.";
-        return null;
+                warning +=
+                    $" Context drive ({contextDrive}) also has insufficient space ({FormatBytes(contextSpace ?? 0)} available).";
+            }
+
+            // 3. Try all other ready drives
+            foreach (var drive in DriveInfo.GetDrives().Where(static d => d.IsReady))
+            {
+                var driveRoot = drive.Name;
+                if (string.Equals(driveRoot, Path.GetPathRoot(defaultTemp), StringComparison.OrdinalIgnoreCase)) continue;
+                if (string.Equals(driveRoot, contextDrive, StringComparison.OrdinalIgnoreCase)) continue;
+
+                if (drive.AvailableFreeSpace >= requiredBytes)
+                {
+                    var dir = CreateTempDirectoryInPath(driveRoot, "romvalidator");
+                    return dir;
+                }
+            }
+
+            warning += " No available drive has sufficient space.";
+            return null;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("TempDirectoryHelper", ex,
+                $"Error finding temp directory with {requiredBytes} bytes free");
+            warning = "Error while searching for a drive with sufficient free space.";
+            return null;
+        }
     }
 
     /// <summary>
@@ -351,14 +383,19 @@ public static class TempDirectoryHelper
     {
         try
         {
-            HashCalculator.InitializeSevenZip();
-            using var extractor = new SharpSevenZipExtractor(archivePath);
-            return extractor.ArchiveFileData
-                .Where(static e => !e.IsDirectory)
-                .Sum(static e => (long)e.Size);
+            return ArchiveService.GetTotalUncompressedSize(archivePath);
         }
-        catch
+        catch (Exception ex)
         {
+            // SharpCompress could not read the archive; try the 7za fallback.
+            var fallbackSize = SevenZipProcess.GetUncompressedSize(archivePath);
+            if (fallbackSize.HasValue)
+            {
+                return fallbackSize.Value;
+            }
+
+            LoggerService.LogDebug("TempDirectoryHelper",
+                $"Could not determine uncompressed size of '{archivePath}': {ex.Message}");
             return 0;
         }
     }

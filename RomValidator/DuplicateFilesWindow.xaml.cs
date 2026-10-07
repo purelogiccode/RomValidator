@@ -1,22 +1,14 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using RomValidator.Models;
 using RomValidator.Services;
 
 namespace RomValidator;
 
 /// <summary>
-/// Represents a group of duplicate files sharing the same hash value.
-/// Used for displaying duplicate file information in the UI.
+/// Window that lists groups of duplicate files (same hash, different filenames)
+/// detected during DAT generation.
 /// </summary>
-public class DuplicateGroup
-{
-    /// <summary>Gets or sets the hash value shared by duplicate files.</summary>
-    public string Hash { get; set; } = string.Empty;
-
-    /// <summary>Gets or sets the concatenated list of filenames sharing the same hash.</summary>
-    public string Filenames { get; set; } = string.Empty;
-}
-
 public partial class DuplicateFilesWindow
 {
     /// <summary>
@@ -24,7 +16,15 @@ public partial class DuplicateFilesWindow
     /// </summary>
     public DuplicateFilesWindow()
     {
-        InitializeComponent();
+        try
+        {
+            InitializeComponent();
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("DuplicateFilesWindow", ex, "Error initializing Duplicate Files window");
+            throw;
+        }
     }
 
     /// <summary>
@@ -63,6 +63,9 @@ public partial class DuplicateFilesWindow
         }
     }
 
+    /// <summary>
+    /// Handles the Close button: closes the duplicate files window.
+    /// </summary>
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         try

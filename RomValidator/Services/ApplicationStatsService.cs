@@ -1,6 +1,8 @@
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
+using RomValidator.Interfaces;
 
 namespace RomValidator.Services;
 
@@ -8,13 +10,42 @@ namespace RomValidator.Services;
 /// Service for recording application usage statistics to a remote API.
 /// Tracks application launches and usage for analytics purposes.
 /// </summary>
-public class ApplicationStatsService(string baseUrl, string apiKey, string applicationId) : IDisposable
+public class ApplicationStatsService : IApplicationStatsService
 {
-    private readonly HttpClient _httpClient = new();
-    private readonly string _statsUrl = $"{baseUrl.TrimEnd('/')}/stats";
-    private readonly string _apiKey = apiKey;
-    private readonly string _applicationId = applicationId;
-    private bool _hasRecordedUsage;
+    private readonly HttpClient _httpClient;
+    private readonly string _statsUrl;
+    private readonly string _apiKey;
+    private readonly string _applicationId;
+    private int _hasRecordedUsage;
+
+    /// <summary>
+    /// Initializes a new instance of the ApplicationStatsService class.
+    /// </summary>
+    /// <param name="baseUrl">Base URL of the Application Stats API (e.g. https://www.purelogiccode.com/ApplicationStats).</param>
+    /// <param name="apiKey">The API key (Bearer token) used to authenticate with the stats API.</param>
+    /// <param name="applicationId">The unique application identifier used by the stats API.</param>
+    public ApplicationStatsService(string baseUrl, string apiKey, string applicationId)
+    {
+        _httpClient = new HttpClient();
+        _statsUrl = $"{baseUrl.TrimEnd('/')}/stats";
+        _apiKey = apiKey;
+        _applicationId = applicationId;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the ApplicationStatsService class using a custom HTTP handler.
+    /// Intended for unit tests so network calls can be simulated.
+    /// </summary>
+    /// <param name="baseUrl">Base URL of the Application Stats API.</param>
+    /// <param name="apiKey">The API key (Bearer token) used to authenticate with the stats API.</param>
+    /// <param name="applicationId">The unique application identifier used by the stats API.</param>
+    /// <param name="httpMessageHandler">The HTTP message handler used to send requests.</param>
+    internal ApplicationStatsService(string baseUrl, string apiKey, string applicationId,
+        HttpMessageHandler httpMessageHandler)
+        : this(baseUrl, apiKey, applicationId)
+    {
+        _httpClient = new HttpClient(httpMessageHandler);
+    }
 
     /// <summary>
     /// Records application usage statistics to the remote API.
@@ -23,12 +54,12 @@ public class ApplicationStatsService(string baseUrl, string apiKey, string appli
     /// <returns>True if the usage was recorded successfully, false otherwise.</returns>
     public async Task<bool> RecordUsageAsync()
     {
-        if (_hasRecordedUsage)
+        // Mark as attempted immediately to prevent duplicate calls per launch.
+        // Interlocked makes the check-and-set atomic so concurrent callers cannot race.
+        if (Interlocked.Exchange(ref _hasRecordedUsage, 1) == 1)
         {
             return true; // Already recorded
         }
-
-        _hasRecordedUsage = true; // Mark as attempted immediately to prevent duplicate calls per launch
 
         try
         {
@@ -51,21 +82,23 @@ public class ApplicationStatsService(string baseUrl, string apiKey, string appli
                 return true;
             }
 
-            // Don't log error for Rate Limit (429) to avoid bug reports (User feedback Apr 11, 2026)
-            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            // Don't log an error for Rate Limit (429) to avoid bug reports (user feedback Apr 11, 2026)
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
                 return false;
             }
 
             var errorContent = await response.Content.ReadAsStringAsync();
-            LoggerService.LogError("ApplicationStatsService",
+            // Stats API failures are server/environmental issues, not application bugs,
+            // so log at Information level and do not send a bug report.
+            LoggerService.LogInfo("ApplicationStatsService",
                 $"Stats API call failed with HTTP status {response.StatusCode}. Content: {errorContent}");
 
             return false;
         }
         catch (Exception ex)
         {
-            LoggerService.LogError("ApplicationStatsService",
+            LoggerService.LogInfo("ApplicationStatsService",
                 $"Exception while recording application stats: {ex.Message}");
             return false;
         }

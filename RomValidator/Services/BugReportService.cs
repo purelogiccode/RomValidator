@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using RomValidator.Interfaces;
 using RomValidator.Models;
 
 namespace RomValidator.Services;
@@ -13,13 +14,14 @@ namespace RomValidator.Services;
 /// Service for reporting bugs to the bug report API.
 /// This service ensures all exceptions are captured with detailed environment and error information.
 /// </summary>
-public class BugReportService : IDisposable
+public class BugReportService : IBugReportService
 {
     private readonly HttpClient _httpClient = new();
     private readonly string _apiUrl;
     private readonly string _apiKey;
     private readonly string _applicationName;
-    private const int MaxMessageLength = 30000;
+    private const int MaxMessageLength = 4000; // API limit for the "message" field
+    private const string TruncationMarker = "\n\n[MESSAGE TRUNCATED DUE TO LENGTH LIMITS]";
 
     /// <summary>
     /// Initializes a new instance of the BugReportService class.
@@ -35,12 +37,27 @@ public class BugReportService : IDisposable
     }
 
     /// <summary>
+    /// Initializes a new instance of the BugReportService class using a custom HTTP handler.
+    /// Intended for unit tests so network calls can be simulated.
+    /// </summary>
+    /// <param name="apiUrl">The URL of the bug report API endpoint.</param>
+    /// <param name="apiKey">The API key for authentication.</param>
+    /// <param name="applicationName">The name of the application for bug reporting.</param>
+    /// <param name="httpMessageHandler">The HTTP message handler used to send requests.</param>
+    internal BugReportService(string apiUrl, string apiKey, string applicationName,
+        HttpMessageHandler httpMessageHandler)
+        : this(apiUrl, apiKey, applicationName)
+    {
+        _httpClient = new HttpClient(httpMessageHandler);
+    }
+
+    /// <summary>
     /// Sends a bug report to the API with comprehensive environment and error details.
     /// </summary>
-    /// <param name="context">Context or location where the error occurred</param>
-    /// <param name="exception">The exception that occurred (optional)</param>
-    /// <param name="additionalInfo">Additional information about the error (optional)</param>
-    /// <returns>True if the report was sent successfully, false otherwise</returns>
+    /// <param name="context">Context or location where the error occurred.</param>
+    /// <param name="exception">The exception that occurred (optional).</param>
+    /// <param name="additionalInfo">Additional information about the error (optional).</param>
+    /// <returns>True if the report was sent successfully, false otherwise.</returns>
     public Task<bool> SendBugReportAsync(string context, Exception? exception = null, string? additionalInfo = null)
     {
         return SendBugReportAsync(context, exception, additionalInfo, CancellationToken.None);
@@ -49,11 +66,11 @@ public class BugReportService : IDisposable
     /// <summary>
     /// Sends a bug report to the API with comprehensive environment and error details.
     /// </summary>
-    /// <param name="context">Context or location where the error occurred</param>
-    /// <param name="exception">The exception that occurred (optional)</param>
-    /// <param name="additionalInfo">Additional information about the error (optional)</param>
-    /// <param name="cancellationToken">Cancellation token for the operation</param>
-    /// <returns>True if the report was sent successfully, false otherwise</returns>
+    /// <param name="context">Context or location where the error occurred.</param>
+    /// <param name="exception">The exception that occurred (optional).</param>
+    /// <param name="additionalInfo">Additional information about the error (optional).</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>True if the report was sent successfully, false otherwise.</returns>
     public async Task<bool> SendBugReportAsync(string context, Exception? exception, string? additionalInfo,
         CancellationToken cancellationToken)
     {
@@ -61,8 +78,8 @@ public class BugReportService : IDisposable
         {
             var reportMessage = BuildBugReportMessage(context, exception, additionalInfo);
 
-            // Create payload matching the API's BugReportRequest structure
-            // The API expects exactly these 6 fields - all environment details must be in the message field
+            // Create payload matching the API's BugReportRequest structure.
+            // The API expects exactly these 6 fields - all environment details must be in the message field.
             var payload = new BugReportPayload
             {
                 Message = reportMessage, // Contains all formatted environment and error details
@@ -93,7 +110,8 @@ public class BugReportService : IDisposable
         }
         catch (Exception ex)
         {
-            // Log the exception that occurred while trying to send the bug report itself
+            // Log the exception that occurred while trying to send the bug report itself.
+            // The Serilog sink filters out "BugReportService" components to avoid recursion.
             LoggerService.LogError("BugReportService", $"Exception while attempting to send bug report: {ex.Message}");
             // Silently fail if there's an exception during a bug report sending itself
             return false;
@@ -101,9 +119,14 @@ public class BugReportService : IDisposable
     }
 
     /// <summary>
-    /// Builds a comprehensive bug report message with all required sections.
+    /// Builds a comprehensive bug report message with all required sections:
+    /// environment details, error details, and exception details.
     /// </summary>
-    private string BuildBugReportMessage(string context, Exception? exception, string? additionalInfo)
+    /// <param name="context">Context or location where the error occurred.</param>
+    /// <param name="exception">The exception that occurred (optional).</param>
+    /// <param name="additionalInfo">Additional information about the error (optional).</param>
+    /// <returns>The formatted bug report message, truncated to the API limit when necessary.</returns>
+    internal string BuildBugReportMessage(string context, Exception? exception, string? additionalInfo)
     {
         var sb = new StringBuilder();
 
@@ -115,7 +138,7 @@ public class BugReportService : IDisposable
         sb.AppendLine(CultureInfo.InvariantCulture, $"OS Version: {Environment.OSVersion.VersionString}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Architecture: {RuntimeInformation.ProcessArchitecture}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Bitness: {(Environment.Is64BitProcess ? "64-bit" : "32-bit")}");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"Windows Version: {GetWindowsVersion()}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"{GetOsVersionLabel()}: {GetWindowsVersion()}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Processor Count: {Environment.ProcessorCount}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Base Directory: {AppDomain.CurrentDomain.BaseDirectory}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Temp Path: {Path.GetTempPath()}");
@@ -140,12 +163,14 @@ public class BugReportService : IDisposable
 
         var fullMessage = sb.ToString();
 
-        // Truncate the message to fit the API's expected length
+        // Truncate the message so that the final string (including the truncation
+        // marker) never exceeds the API's maximum length.
         if (fullMessage.Length > MaxMessageLength)
         {
+            var keepLength = MaxMessageLength - TruncationMarker.Length;
             fullMessage = string.Concat(
-                fullMessage.AsSpan(0, MaxMessageLength),
-                "\n\n[MESSAGE TRUNCATED DUE TO LENGTH LIMITS]");
+                fullMessage.AsSpan(0, keepLength),
+                TruncationMarker);
         }
 
         return fullMessage;
@@ -154,6 +179,8 @@ public class BugReportService : IDisposable
     /// <summary>
     /// Builds detailed exception information including inner exceptions.
     /// </summary>
+    /// <param name="exception">The exception to describe.</param>
+    /// <returns>A formatted multi-line description of the exception chain.</returns>
     private static string BuildExceptionDetails(Exception exception)
     {
         var sb = new StringBuilder();
@@ -218,6 +245,7 @@ public class BugReportService : IDisposable
     /// <summary>
     /// Gets the application version from the executing assembly.
     /// </summary>
+    /// <returns>The application version, or "Unknown" when it cannot be determined.</returns>
     private static string GetApplicationVersion()
     {
         try
@@ -225,15 +253,31 @@ public class BugReportService : IDisposable
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             return version?.ToString() ?? "Unknown";
         }
-        catch
+        catch (Exception ex)
         {
+            LoggerService.LogDebug("BugReportService", $"Could not determine application version: {ex.Message}");
             return "Unknown";
         }
     }
 
     /// <summary>
-    /// Gets detailed Windows version information.
+    /// Gets the platform-specific label for the operating system version line
+    /// (e.g. "Windows Version", "Linux Version", "MacOSX Version").
     /// </summary>
+    /// <returns>The platform-specific version label.</returns>
+    private static string GetOsVersionLabel()
+    {
+        if (OperatingSystem.IsWindows()) return "Windows Version";
+        if (OperatingSystem.IsLinux()) return "Linux Version";
+        if (OperatingSystem.IsMacOS()) return "MacOSX Version";
+        return "OS Version";
+    }
+
+    /// <summary>
+    /// Gets detailed operating system version information, including Windows display
+    /// version and build number when available.
+    /// </summary>
+    /// <returns>A human-readable operating system description.</returns>
     private static string GetWindowsVersion()
     {
         try
@@ -267,16 +311,18 @@ public class BugReportService : IDisposable
                         }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Ignore registry access errors
+                    LoggerService.LogDebug("BugReportService",
+                        $"Could not read Windows registry version info: {ex.Message}");
                 }
             }
 
             return osDescription;
         }
-        catch
+        catch (Exception ex)
         {
+            LoggerService.LogDebug("BugReportService", $"Could not determine OS version: {ex.Message}");
             return "Unknown";
         }
     }

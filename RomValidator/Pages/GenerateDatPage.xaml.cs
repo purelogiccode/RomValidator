@@ -16,6 +16,10 @@ using RomValidator.Services;
 
 namespace RomValidator.Pages;
 
+/// <summary>
+/// Page that hashes all files in a folder and exports the results as a
+/// No-Intro compliant DAT file, reporting duplicate ROMs along the way.
+/// </summary>
 public partial class GenerateDatPage : IDisposable
 {
     // Maximum time a regex match is allowed to run before timing out
@@ -48,19 +52,27 @@ public partial class GenerateDatPage : IDisposable
     /// <param name="mainWindow">The main window instance for status updates.</param>
     public GenerateDatPage(MainWindow mainWindow)
     {
-        _mainWindow = mainWindow;
-        InitializeComponent();
-        HashListView.ItemsSource = _fileDataCollection;
-        UpdateFileCountText(0);
-
-        // Initialize UI update timer for batching (Issue A fix)
-        _uiUpdateTimer = new DispatcherTimer
+        try
         {
-            Interval = TimeSpan.FromMilliseconds(100)
-        };
-        _uiUpdateTimer.Tick += UIUpdateTimer_Tick;
+            _mainWindow = mainWindow;
+            InitializeComponent();
+            HashListView.ItemsSource = _fileDataCollection;
+            UpdateFileCountText(0);
 
-        _mainWindow.UpdateStatusBarMessage("Ready to generate DAT file.");
+            // Initialize UI update timer for batching (Issue A fix)
+            _uiUpdateTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(100)
+            };
+            _uiUpdateTimer.Tick += UIUpdateTimer_Tick;
+
+            _mainWindow.UpdateStatusBarMessage("Ready to generate DAT file.");
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("GenerateDatPage", ex, "Error initializing GenerateDatPage");
+            throw;
+        }
     }
 
     private void SelectFolderButton_Click(object sender, RoutedEventArgs e)
@@ -280,8 +292,8 @@ public partial class GenerateDatPage : IDisposable
         // Start a background task to count files so we can estimate progress bar Max
         // The actual Maximum will be set atomically in the main loop (Issue 2 & 3 fix)
         _ = Task.Run(
-            () => CountFilesInBackground(folderPath, enumerationOptions, ref _discoveredFilesCount, cancellationToken,
-                _mainWindow.BugReportService), cancellationToken);
+            () => CountFilesInBackground(folderPath, enumerationOptions, ref _discoveredFilesCount, cancellationToken),
+            cancellationToken);
 
         // Stream the files using EnumerationOptions to skip inaccessible items (Issue 4 fix)
         var fileEnumerable = Directory.EnumerateFiles(folderPath, "*", enumerationOptions);
@@ -292,7 +304,7 @@ public partial class GenerateDatPage : IDisposable
             if (cancellationToken.IsCancellationRequested) break;
 
             var gameFiles =
-                await HashCalculator.CalculateHashesAsync(filePath, cancellationToken, _mainWindow.BugReportService);
+                await HashCalculator.CalculateHashesAsync(filePath, cancellationToken);
             var romsFromFile = gameFiles.Count;
 
             // Read the discovered count from the background task (do NOT increment here —
@@ -358,7 +370,9 @@ public partial class GenerateDatPage : IDisposable
 
                             if (filenames.Count > 1)
                             {
-                                LoggerService.LogWarning("DAT Generation",
+                                // Duplicate ROMs are user data, not application bugs; keep
+                                // them at Information level so no bug report is sent.
+                                LoggerService.LogInfo("DAT Generation",
                                     $"Duplicate ROM detected: Hash {gameFile.Sha256} has multiple filenames: {string.Join(", ", filenames)}");
                             }
                         }
@@ -586,7 +600,7 @@ public partial class GenerateDatPage : IDisposable
     /// <summary>
     /// Resets the page to its initial state, clearing all data and stopping ongoing operations.
     /// </summary>
-    public void ResetPage()
+    private void ResetPage()
     {
         try
         {
@@ -636,7 +650,7 @@ public partial class GenerateDatPage : IDisposable
     }
 
     private static void CountFilesInBackground(string folderPath, EnumerationOptions options, ref int counter,
-        CancellationToken cancellationToken, BugReportService? bugReportService = null)
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -649,7 +663,7 @@ public partial class GenerateDatPage : IDisposable
         }
         catch (Exception ex)
         {
-            _ = bugReportService?.SendBugReportAsync("Error counting files in background.", ex);
+            LoggerService.LogException("GenerateDatPage", ex, "Error counting files in background");
         }
     }
 

@@ -1,13 +1,17 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Media;
+using RomValidator.Interfaces;
 using RomValidator.Pages;
 using RomValidator.Services;
 
 namespace RomValidator;
 
+/// <summary>
+/// Main application window. Hosts the navigation header, the page frame
+/// (Validate ROMs / Generate DAT), and the status bar.
+/// </summary>
 public partial class MainWindow : IDisposable
 {
     // Cached brushes for UI consistency (PERF fix)
@@ -17,10 +21,7 @@ public partial class MainWindow : IDisposable
 
     // Services
     /// <summary>Gets the bug report service for error tracking.</summary>
-    public BugReportService BugReportService { get; }
-
-    /// <summary>Gets the GitHub version checker for update notifications.</summary>
-    public GitHubVersionChecker VersionChecker { get; }
+    public IBugReportService BugReportService { get; }
 
     // Pages
     private readonly ValidatePage _validatePage;
@@ -32,24 +33,34 @@ public partial class MainWindow : IDisposable
     /// </summary>
     public MainWindow()
     {
-        InitializeComponent();
+        try
+        {
+            InitializeComponent();
 
-        // Reuse the BugReportService from App to avoid duplicate HttpClient instances
-        BugReportService = ((App)Application.Current).GetBugReportService()
-                           ?? throw new InvalidOperationException(
-                               "BugReportService must be initialized before MainWindow.");
+            // Reuse the BugReportService from App to avoid duplicate HttpClient instances
+            BugReportService = ((App)Application.Current).GetBugReportService()
+                               ?? throw new InvalidOperationException(
+                                   "BugReportService must be initialized before MainWindow.");
 
-        VersionChecker = new GitHubVersionChecker("purelogiccode", "RomValidator", BugReportService);
+            // Initialize Pages
+            _validatePage = new ValidatePage(this);
+            _generateDatPage = new GenerateDatPage(this);
 
-        // Initialize Pages
-        _validatePage = new ValidatePage(this);
-        _generateDatPage = new GenerateDatPage(this);
-
-        // Load initial page
-        MainContentFrame.Navigate(_validatePage);
-        UpdateActivePageIndicator(_validatePage);
+            // Load initial page
+            MainContentFrame.Navigate(_validatePage);
+            UpdateActivePageIndicator(_validatePage);
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("MainWindow", ex, "Error initializing MainWindow");
+            throw;
+        }
     }
 
+    /// <summary>
+    /// Highlights the header button that corresponds to the currently displayed page.
+    /// </summary>
+    /// <param name="activePage">The page currently shown in the content frame.</param>
     private void UpdateActivePageIndicator(object activePage)
     {
         if (Equals(activePage, _validatePage))
@@ -94,9 +105,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             // Log the exception but don't crash the application
-            Debug.WriteLine($"Error updating status bar: {ex.Message}");
-            _ = BugReportService.SendBugReportAsync("Error updating status bar", ex,
-                additionalInfo: null, cancellationToken: cancellationToken);
+            LoggerService.LogException("MainWindow", ex, "Error updating status bar");
         }
     }
 
@@ -111,6 +120,9 @@ public partial class MainWindow : IDisposable
         _ = UpdateStatusBarMessageAsync(message);
     }
 
+    /// <summary>
+    /// Handles the "Validate ROMs" header button: navigates to the validation page.
+    /// </summary>
     private void ValidateRoms_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -127,6 +139,9 @@ public partial class MainWindow : IDisposable
         }
     }
 
+    /// <summary>
+    /// Handles the "Generate DAT" header button: navigates to the DAT generation page.
+    /// </summary>
     private void GenerateDat_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -143,6 +158,9 @@ public partial class MainWindow : IDisposable
         }
     }
 
+    /// <summary>
+    /// Handles the "About" header button: opens the About window.
+    /// </summary>
     private void About_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -156,6 +174,9 @@ public partial class MainWindow : IDisposable
         }
     }
 
+    /// <summary>
+    /// Handles the "App Data" header button: opens the per-user data folder in Explorer.
+    /// </summary>
     private void OpenAppData_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -176,6 +197,9 @@ public partial class MainWindow : IDisposable
         }
     }
 
+    /// <summary>
+    /// Handles the "Exit" header button: closes the application.
+    /// </summary>
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -188,23 +212,9 @@ public partial class MainWindow : IDisposable
         }
     }
 
-    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        try
-        {
-            if (e.Key == Key.F8)
-            {
-                e.Handled = true;
-                var filePath = ScreenshotService.CaptureWindowScreenshot(this);
-                _ = UpdateStatusBarMessageAsync($"Screenshot saved: {filePath}");
-            }
-        }
-        catch (Exception ex)
-        {
-            LoggerService.LogException("MainWindow", ex, "Error capturing screenshot");
-        }
-    }
-
+    /// <summary>
+    /// Handles window closing: disposes resources owned by the main window.
+    /// </summary>
     private void Window_Closing(object sender, CancelEventArgs e)
     {
         try
@@ -231,7 +241,7 @@ public partial class MainWindow : IDisposable
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error during shutdown: {ex.Message}");
+            LoggerService.LogException("MainWindow", ex, "Error during shutdown");
         }
 
         // Dispose pages while BugReportService is still alive for error reporting
@@ -241,8 +251,7 @@ public partial class MainWindow : IDisposable
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"ValidatePage dispose error: {ex.Message}");
-            _ = BugReportService.SendBugReportAsync("Error disposing ValidatePage", ex);
+            LoggerService.LogException("MainWindow", ex, "Error disposing ValidatePage");
         }
 
         try
@@ -251,18 +260,7 @@ public partial class MainWindow : IDisposable
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"GenerateDatPage dispose error: {ex.Message}");
-            _ = BugReportService.SendBugReportAsync("Error disposing GenerateDatPage", ex);
-        }
-
-        try
-        {
-            VersionChecker.Dispose();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"VersionChecker dispose error: {ex.Message}");
-            _ = BugReportService.SendBugReportAsync("Error disposing VersionChecker", ex);
+            LoggerService.LogException("MainWindow", ex, "Error disposing GenerateDatPage");
         }
 
         // BugReportService is owned by App and disposed in App.OnExit (after the
