@@ -9,6 +9,17 @@ description: "Release history for ROM Validator. Full details on GitHub Releases
 The full release history, with commit-level detail and downloadable zips, is available on the
 [GitHub Releases](https://github.com/purelogiccode/RomValidator/releases) page.
 
+## 2.9.2
+
+### Highlights
+
+- **Donate button**: a new **Donate** button in the header (next to **About**) opens the
+  [donation page](https://www.purelogiccode.com/donate) in your default browser.
+
+### Notes
+
+- The release zip is framework-dependent and requires the .NET 10 Desktop Runtime.
+
 ## 2.9.1
 
 ### Highlights
