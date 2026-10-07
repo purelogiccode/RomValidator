@@ -1,7 +1,15 @@
+[![CI](https://github.com/purelogiccode/RomValidator/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/RomValidator/actions/workflows/ci.yml)
+[![Docs](https://github.com/purelogiccode/RomValidator/actions/workflows/docs.yml/badge.svg)](https://github.com/purelogiccode/RomValidator/actions/workflows/docs.yml)
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/RomValidator)](https://github.com/purelogiccode/RomValidator/releases)
+[![Downloads](https://img.shields.io/github/downloads/purelogiccode/RomValidator/total)](https://github.com/purelogiccode/RomValidator/releases)
+[![Stars](https://img.shields.io/github/stars/purelogiccode/RomValidator)](https://github.com/purelogiccode/RomValidator/stargazers)
+[![Forks](https://img.shields.io/github/forks/purelogiccode/RomValidator)](https://github.com/purelogiccode/RomValidator/forks)
+[![Issues](https://img.shields.io/github/issues/purelogiccode/RomValidator)](https://github.com/purelogiccode/RomValidator/issues)
+[![Last commit](https://img.shields.io/github/last-commit/purelogiccode/RomValidator)](https://github.com/purelogiccode/RomValidator/commits/master)
+[![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/RomValidator/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
-[![CI](https://github.com/purelogiccode/RomValidator/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/RomValidator/actions/workflows/ci.yml)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/contributing.md)
 
 # ROM Validator
 
@@ -122,3 +130,5 @@ See [CI/CD](docs/ci-cd.md) for details.
 ## 📜 License
 
 This project is licensed under the GPLv3 License – see the [LICENSE](LICENSE.txt) file for details.
+
+Copyright (C) 2026 [Peterson Fernandes](https://github.com/drpetersonfernandes) – [PureLogicCode.com](https://www.purelogiccode.com)

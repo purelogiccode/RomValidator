@@ -37,7 +37,7 @@ back_to_top: true
 back_to_top_text: "Back to top"
 
 footer_content: >-
-  ROM Validator is licensed under GPLv3. &copy; PureLogicCode.com.
+  ROM Validator is licensed under GPLv3. &copy; 2026 Peterson Fernandes (PureLogicCode.com).
 
 plugins:
   - jekyll-remote-theme
