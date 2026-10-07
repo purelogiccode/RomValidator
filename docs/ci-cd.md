@@ -42,8 +42,8 @@ Flow:
 
    Every zip contains `RomValidator.exe`, the bundled 7-Zip fallback executables
    (`7za.exe` / `7za_arm64.exe`), and `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
-3. **release** - creates a GitHub release for the tag and attaches all zips and checksums, with
-   automatically generated release notes.
+3. **release** - checks out the repository history, then creates a GitHub release for the tag and
+   attaches all zips and checksums, with automatically generated release notes.
 
 ### Creating a release
 
