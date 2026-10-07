@@ -159,6 +159,31 @@ public partial class MainWindow : IDisposable
     }
 
     /// <summary>
+    /// Handles the "Donate" header button: opens the donation page in the default browser.
+    /// </summary>
+    private void Donate_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://www.purelogiccode.com/donate",
+                UseShellExecute = true
+            });
+            UpdateStatusBarMessage("Opened donation page: https://www.purelogiccode.com/donate");
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("MainWindow", ex, "Error opening donation page");
+            MessageBox.Show(
+                "Could not open the donation page.\n\nYou can visit it here:\nhttps://www.purelogiccode.com/donate",
+                "Donate",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+    }
+
+    /// <summary>
     /// Handles the "About" header button: opens the About window.
     /// </summary>
     private void About_Click(object sender, RoutedEventArgs e)
