@@ -27,29 +27,35 @@ Test results (`*.trx`) and coverage output are uploaded as the `test-results` ar
 
 | Property | Value |
 |:---------|:------|
-| Triggers | Push of a `v*` tag, or manual dispatch with a tag input |
+| Triggers | Push of a `release_*` or `v*` tag, or manual dispatch with a tag input |
 | Runner | `windows-latest` (verify + package), `ubuntu-latest` (publish) |
 | Permissions | `contents: write` |
 
 Flow:
 
 1. **verify** - builds and runs the full test suite.
-2. **package** - publishes `win-x64` and `win-arm64` builds and creates:
-   - `RomValidator_<version>_win-x64.zip`
-   - `RomValidator_<version>_win-arm64.zip`
+2. **package** - publishes `win-x64` and `win-arm64` builds as single-file, framework-dependent
+   executables and creates:
+   - `release_<version>_win-x64.zip`
+   - `release_<version>_win-arm64.zip`
    - a `.sha256` checksum file for each zip.
+
+   Every zip contains `RomValidator.exe`, the bundled 7-Zip fallback executables
+   (`7za.exe` / `7za_arm64.exe`), and `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
 3. **release** - creates a GitHub release for the tag and attaches all zips and checksums, with
    automatically generated release notes.
 
 ### Creating a release
 
 ```powershell
-git tag v2.9.0
-git push origin v2.9.0
+git tag release_2.9.0
+git push origin release_2.9.0
 ```
 
-The version in the zip names comes from the tag (a leading `v` is stripped). Keep the tag in
-sync with `AssemblyVersion` / `FileVersion` in `RomValidator.csproj`.
+The version in the zip names comes from the tag (`release_` or a leading `v` is stripped). This
+naming convention is compatible with the in-app update check, which parses tags such as
+`release_2.9.0` and `v2.9.0`. Keep the tag in sync with `AssemblyVersion` / `FileVersion` in
+`RomValidator.csproj`.
 
 A manual dispatch of the workflow with the tag input can be used to re-publish an existing tag.
 

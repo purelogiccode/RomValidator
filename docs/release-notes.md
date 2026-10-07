@@ -9,6 +9,32 @@ description: "Release history for ROM Validator. Full details on GitHub Releases
 The full release history, with commit-level detail and downloadable zips, is available on the
 [GitHub Releases](https://github.com/purelogiccode/RomValidator/releases) page.
 
+## 2.9.0
+
+### Highlights
+
+- **Single-file executables**: each bundle contains one `RomValidator.exe` (framework-dependent;
+  the .NET 10 Desktop Runtime is still required).
+- **Complete bundles**: the zips now include `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`
+  alongside the bundled 7-Zip fallback executables.
+- **Update-checker compatible names**: `release_<version>_win-x64.zip` and
+  `release_<version>_win-arm64.zip`, matching the tag convention parsed by the in-app update
+  check.
+- **Safer archive repacking**: internal renames target the file whose hash matches the DAT entry
+  (not just the first file), folder structure is preserved, and converting a `.rar` to `.zip`
+  never overwrites an existing zip.
+- **Fewer false bug reports**: files locked by another process are logged locally instead of
+  being reported as bugs.
+- **UTF-16/UTF-32 XML DAT files** are accepted again, and disk-full errors while moving files
+  stop the validation queue cleanly.
+- **Documentation** published to GitHub Pages and mirrored to the GitHub Wiki, both with side
+  navigation, plus CI and an automated release workflow.
+
+### Notes
+
+- The release zip is framework-dependent and requires the .NET 10 Desktop Runtime.
+- RAR archives are converted to ZIP when their internal filenames must be renamed.
+
 ## 2.8.0
 
 ### Highlights

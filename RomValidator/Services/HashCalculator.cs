@@ -322,6 +322,25 @@ public static partial class HashCalculator
         {
             throw;
         }
+        catch (IOException ex) when (IsAccessDeniedError(ex))
+        {
+            // A file locked by another process is a user-environment condition, not an
+            // application bug: log at Information level so no bug report is sent.
+            LoggerService.LogInfo("HashCalculator",
+                $"File '{fileInfo.Name}' is locked or access denied: {ex.Message}");
+            return new GameFile
+            {
+                FileName = fileInfo.Name,
+                GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                FileSize = GetFileSizeSafe(fileInfo),
+                ErrorMessage = "File is locked or access denied",
+                IsUserError = true,
+                Crc32 = "ERROR",
+                Md5 = "ERROR",
+                Sha1 = "ERROR",
+                Sha256 = "ERROR"
+            };
+        }
         catch (Exception ex)
         {
             LoggerService.LogException("HashCalculator", ex, $"Error processing file '{fileInfo.Name}'");

@@ -23,11 +23,15 @@ This page walks you through installing ROM Validator and completing your first v
 
 1. Open the [latest release](https://github.com/purelogiccode/RomValidator/releases/latest).
 2. Download the zip that matches your system:
-   - `RomValidator_<version>_win-x64.zip` for Intel/AMD machines
-   - `RomValidator_<version>_win-arm64.zip` for Windows on ARM devices
+   - `release_<version>_win-x64.zip` for Intel/AMD machines
+   - `release_<version>_win-arm64.zip` for Windows on ARM devices
 3. Extract the zip to a permanent folder, for example `C:\Program Files\ROM Validator` or
    `D:\Tools\RomValidator`.
 4. Run `RomValidator.exe`.
+
+Each zip contains a single-file `RomValidator.exe` (framework-dependent), the bundled 7-Zip
+fallback executables (`7za.exe` / `7za_arm64.exe`), and `LICENSE.txt`, `ReadMe.md` and
+`WhatsNew.md`.
 
 If the .NET Desktop Runtime is missing, Windows prompts you with a download link. Install it and
 start the application again.

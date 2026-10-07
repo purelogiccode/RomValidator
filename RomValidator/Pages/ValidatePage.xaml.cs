@@ -402,7 +402,7 @@ public partial class ValidatePage : IDisposable
                         {
                             try
                             {
-                                newFilePath = await RenameFileInsideArchiveAsync(newFilePath, hashMatchedRom.Name);
+                                newFilePath = await RenameFileInsideArchiveAsync(newFilePath, hashMatchedRom);
                                 displayName = Path.GetFileName(newFilePath);
                             }
                             catch (Exception archiveEx)
@@ -853,7 +853,8 @@ public partial class ValidatePage : IDisposable
             // not app bugs, so we handle them here (after the ClrMamePro/MAME
             // checks above, which have their own specific messages) and do NOT
             // send a bug report.
-            if (LooksLikeBinaryContent(datFilePreview) || !LooksLikeXmlContent(datFilePreview))
+            if (!HasXmlTextBom(datFilePreview) &&
+                (LooksLikeBinaryContent(datFilePreview) || !LooksLikeXmlContent(datFilePreview)))
             {
                 const string errorMsg = "Incompatible file format.\n\n" +
                                         "This application only supports No-Intro XML DAT files.\n\n" +
@@ -1264,6 +1265,28 @@ public partial class ValidatePage : IDisposable
         return trimmed.StartsWith('<');
     }
 
+    /// <summary>
+    /// Determines whether the preview starts with a UTF-16 or UTF-32 byte order mark.
+    /// Valid XML may be encoded as UTF-16/UTF-32; because the preview is decoded as
+    /// Latin-1 those files look binary, so the BOM must be trusted and the content
+    /// validated by the XML reader instead of the binary heuristics.
+    /// </summary>
+    /// <param name="preview">The raw DAT file preview.</param>
+    /// <returns>True when the preview starts with a UTF-16/UTF-32 BOM.</returns>
+    private static bool HasXmlTextBom(string? preview)
+    {
+        if (string.IsNullOrEmpty(preview))
+        {
+            return false;
+        }
+
+        // Latin-1 decoding of the BOM bytes: FF FE (UTF-16 LE), FE FF (UTF-16 BE),
+        // FF FE 00 00 (UTF-32 LE), 00 00 FE FF (UTF-32 BE).
+        return preview.StartsWith("\u00FF\u00FE", StringComparison.Ordinal) ||
+               preview.StartsWith("\u00FE\u00FF", StringComparison.Ordinal) ||
+               preview.StartsWith("\0\0\u00FE\u00FF", StringComparison.Ordinal);
+    }
+
     private async Task<(Rom? Rom, string HashType)> FindRomByHashAsync(string filePath, CancellationToken token)
     {
         try
@@ -1395,6 +1418,7 @@ public partial class ValidatePage : IDisposable
             {
                 LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)}: Disk is full.");
                 _mainWindow.UpdateStatusBarMessage("Cannot move file - disk is full.");
+                _diskSpaceExhausted = true;
                 return;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
@@ -1432,6 +1456,18 @@ public partial class ValidatePage : IDisposable
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// Gets the archive entry name for a file extracted into a temporary directory:
+    /// the path relative to the extraction root, using forward slashes.
+    /// </summary>
+    /// <param name="tempDir">The extraction root directory.</param>
+    /// <param name="filePath">The extracted file path.</param>
+    /// <returns>The normalized entry name (e.g. "folder/file.bin").</returns>
+    private static string GetArchiveEntryName(string tempDir, string filePath)
+    {
+        return Path.GetRelativePath(tempDir, filePath).Replace('\\', '/');
     }
 
     private static string GetUniqueDestPath(string destPath)
@@ -1833,7 +1869,7 @@ public partial class ValidatePage : IDisposable
             foreach (var sourceFile in extractedFiles)
             {
                 var sourceFileName = Path.GetFileName(sourceFile);
-                var targetFileName = sourceFileName;
+                var targetFileName = GetArchiveEntryName(tempDir, sourceFile);
 
                 // Find the expected ROM that matches this internal file
                 foreach (var expectedRom in expectedRoms)
@@ -1956,16 +1992,30 @@ public partial class ValidatePage : IDisposable
         var isRarFile = archivePath.EndsWith(".rar", StringComparison.OrdinalIgnoreCase);
         var outputArchivePath = isRarFile ? Path.ChangeExtension(archivePath, ".zip") : archivePath;
 
-        // Rename the extracted files on disk before compression
+        // Never overwrite an unrelated archive that already uses the converted name
+        // (e.g. a valid game.zip next to the game.rar being converted).
+        if (!string.Equals(outputArchivePath, archivePath, StringComparison.OrdinalIgnoreCase) &&
+            File.Exists(outputArchivePath))
+        {
+            var uniquePath = GetUniqueDestPath(outputArchivePath);
+            LogMessage(
+                $"[WARNING] '{Path.GetFileName(outputArchivePath)}' already exists; the converted archive will be saved as '{Path.GetFileName(uniquePath)}'.");
+            outputArchivePath = uniquePath;
+        }
+
+        // Rename the extracted files on disk before compression. Entry names preserve
+        // the internal folder structure; only files renamed to match a DAT entry are
+        // moved to the root of the new archive.
         var renamedFiles = new List<(string Path, string EntryName)>();
         foreach (var (originalPath, newName) in fileMapping)
         {
+            var targetFileName = Path.GetFileName(newName);
             var newPath = Path.Combine(
                 Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(
                     "Could not determine directory for extracted archive file."),
-                newName);
+                targetFileName);
 
-            if (!string.Equals(Path.GetFileName(originalPath), newName, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(Path.GetFileName(originalPath), targetFileName, StringComparison.OrdinalIgnoreCase))
             {
                 if (File.Exists(newPath))
                 {
@@ -1979,7 +2029,7 @@ public partial class ValidatePage : IDisposable
                 newPath = originalPath; // Same file, no rename needed
             }
 
-            renamedFiles.Add((newPath, newName));
+            renamedFiles.Add((newPath, newName.Replace('\\', '/')));
         }
 
         var tempArchivePath = outputArchivePath + ".tmp";
@@ -2090,7 +2140,14 @@ public partial class ValidatePage : IDisposable
         Directory.CreateDirectory(stagingDirectory);
         foreach (var (filePath, entryName) in renamedFiles)
         {
-            File.Move(filePath, Path.Combine(stagingDirectory, entryName), true);
+            var destination = Path.Combine(stagingDirectory, entryName);
+            var destinationDirectory = Path.GetDirectoryName(destination);
+            if (!string.IsNullOrEmpty(destinationDirectory))
+            {
+                Directory.CreateDirectory(destinationDirectory);
+            }
+
+            File.Move(filePath, destination, true);
         }
 
         var created = await SevenZipProcess.CreateArchiveAsync(stagingDirectory, tempArchivePath, is7ZFile,
@@ -2175,9 +2232,9 @@ public partial class ValidatePage : IDisposable
     /// For rar files: extracts contents, renames file, converts to zip using SharpCompress (RAR creation not supported).
     /// </summary>
     /// <param name="archivePath">Path to the archive file.</param>
-    /// <param name="targetFileName">The desired internal file name from the DAT entry.</param>
+    /// <param name="targetRom">The DAT entry whose hash matched the archive content.</param>
     /// <returns>The path to the final archive (a ZIP path when a RAR was converted).</returns>
-    private async Task<string> RenameFileInsideArchiveAsync(string archivePath, string targetFileName)
+    private async Task<string> RenameFileInsideArchiveAsync(string archivePath, Rom targetRom)
     {
         var archiveFileName = Path.GetFileName(archivePath);
         var tempDir = PrepareArchiveTempDirectory(archivePath, archiveFileName);
@@ -2204,28 +2261,31 @@ public partial class ValidatePage : IDisposable
                 throw new InvalidOperationException("Archive is empty or extraction failed.");
             }
 
-            // Build a mapping of original paths to new names
+            // Build a mapping of original paths to new entry names
             var fileMapping = new List<(string OriginalPath, string NewName)>();
             var targetFileRenamed = false;
 
             foreach (var sourceFile in extractedFiles)
             {
-                var sourceFileName = Path.GetFileName(sourceFile);
-                string destFileName;
+                var destFileName = GetArchiveEntryName(tempDir, sourceFile);
 
-                // Rename the first file to targetFileName
-                if (!targetFileRenamed)
+                // Rename the internal file whose content matches the DAT entry.
+                // Never rename an arbitrary file: if nothing matches, leave the
+                // archive untouched (the outer rename already succeeded).
+                if (!targetFileRenamed && await DoesInternalFileMatchRomAsync(sourceFile, targetRom))
                 {
-                    destFileName = Path.GetFileName(targetFileName);
+                    destFileName = Path.GetFileName(targetRom.Name);
                     targetFileRenamed = true;
-                }
-                else
-                {
-                    // Keep other files with their original names
-                    destFileName = sourceFileName;
                 }
 
                 fileMapping.Add((sourceFile, destFileName));
+            }
+
+            if (!targetFileRenamed)
+            {
+                LoggerService.LogInfo("ArchiveRepack",
+                    $"No internal file in '{archiveFileName}' matched '{targetRom.Name}'; archive left unchanged.");
+                return archivePath;
             }
 
             return await RepackArchiveAsync(archivePath, fileMapping, archiveFileName, tempDir);

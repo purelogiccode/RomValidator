@@ -45,9 +45,11 @@ A Windows desktop application for validating ROM files against DAT files and gen
 ## Installation
 
 1. Download the zip for your architecture from the [latest release](https://github.com/purelogiccode/RomValidator/releases/latest):
-   - `RomValidator_<version>_win-x64.zip`
-   - `RomValidator_<version>_win-arm64.zip`
+   - `release_<version>_win-x64.zip`
+   - `release_<version>_win-arm64.zip`
 2. Extract it to a permanent folder and run `RomValidator.exe`. The application refuses to run directly from a zip archive or a temporary folder.
+
+Each zip contains a single-file `RomValidator.exe` (framework-dependent), the bundled 7-Zip fallback executables, and `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
 
 Full instructions: [Getting Started](docs/getting-started.md).
 
@@ -110,10 +112,14 @@ dotnet test
 | Workflow | Purpose |
 |:---------|:--------|
 | [CI](.github/workflows/ci.yml) | Builds and tests every push and pull request |
-| [Release](.github/workflows/release.yml) | Publishes the win-x64/win-arm64 zips and checksums on `v*` tags |
+| [Release](.github/workflows/release.yml) | Publishes the single-file win-x64/win-arm64 zips (with license, readme and what's new) and checksums on `release_*` / `v*` tags |
 | [Docs](.github/workflows/docs.yml) | Publishes the documentation site and mirrors `docs/` to the wiki |
 
 See [CI/CD](docs/ci-cd.md) for details.
+
+## What's New
+
+See [WhatsNew.md](WhatsNew.md) for the latest release highlights and [Release Notes](docs/release-notes.md) for the full history.
 
 ## Acknowledgments
 

@@ -2,11 +2,11 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*", "release_*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to build and publish (e.g. v2.8.0)"
+        description: "Release tag to build and publish (e.g. release_2.9.0)"
         required: true
         type: string
 
@@ -66,8 +66,9 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($tag)) {
             throw "A release tag is required."
           }
+          $version = $tag -replace '^v', '' -replace '^release_', ''
           "tag=$tag" >> $env:GITHUB_OUTPUT
-          "version=$($tag.TrimStart('v'))" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Publish
         run: >
@@ -76,11 +77,17 @@ jobs:
           --runtime ${{ matrix.rid }}
           --output publish/${{ matrix.rid }}
           --no-self-contained
+          -p:PublishSingleFile=true
+
+      - name: Add license, readme and whatsnew to the bundle
+        shell: pwsh
+        run: |
+          Copy-Item LICENSE.txt, ReadMe.md, WhatsNew.md "publish/${{ matrix.rid }}/"
 
       - name: Create zip and checksum
         shell: pwsh
         run: |
-          $zip = "RomValidator_${{ steps.version.outputs.version }}_${{ matrix.rid }}.zip"
+          $zip = "release_${{ steps.version.outputs.version }}_${{ matrix.rid }}.zip"
           Compress-Archive -Path "publish/${{ matrix.rid }}/*" -DestinationPath $zip -CompressionLevel Optimal
           $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $zip" | Set-Content -Path "$zip.sha256" -Encoding ascii
@@ -90,8 +97,8 @@ jobs:
         with:
           name: package-${{ matrix.rid }}
           path: |
-            RomValidator_*.zip
-            RomValidator_*.zip.sha256
+            release_*.zip
+            release_*.zip.sha256
           if-no-files-found: error
 
   release:
@@ -113,8 +120,10 @@ jobs:
             echo "A release tag is required." >&2
             exit 1
           fi
+          version="${tag#v}"
+          version="${version#release_}"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Download packages
         uses: actions/download-artifact@v4
