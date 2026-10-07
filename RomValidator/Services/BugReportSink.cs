@@ -97,6 +97,12 @@ internal sealed class BugReportSink : ILogEventSink, IDisposable
     }
 
     /// <summary>
+    /// Gets a value indicating whether a bug report send is currently in flight.
+    /// Exposed for tests so they can wait until the gate has been released.
+    /// </summary>
+    internal bool IsSendInFlight => Volatile.Read(ref _isSending) == 1;
+
+    /// <summary>
     /// Releases resources used by the sink. The sink holds no unmanaged resources.
     /// </summary>
     public void Dispose()

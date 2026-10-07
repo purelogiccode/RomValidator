@@ -72,12 +72,24 @@ public class BugReportSinkTests
 
         fakeService.ReleaseSends();
 
-        // Wait until the first send completes; the sink releases its gate on completion.
+        // Wait until the first send completes AND the sink has released its gate:
+        // the completion continuation runs asynchronously, so the send task may
+        // finish before the sink is ready to accept the next report.
         await fakeService.WaitForSendCompletionAsync();
+        await WaitUntilAsync(() => !sink.IsSendInFlight);
 
         sink.Emit(CreateLogEvent(LogEventLevel.Error, "Third"));
 
         Assert.Equal(2, fakeService.CallCount);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition() && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
     }
 
     private static LogEvent CreateLogEvent(LogEventLevel level, string message, Exception? exception = null,
