@@ -27,15 +27,11 @@ internal sealed class FakeHttpMessageHandler : HttpMessageHandler
     /// <summary>Gets the number of requests received by this handler.</summary>
     public int RequestCount { get; private set; }
 
-    /// <summary>Gets the requests received by this handler.</summary>
-    public List<HttpRequestMessage> Requests { get; } = [];
-
     /// <inheritdoc />
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
         RequestCount++;
-        Requests.Add(request);
         return _handler(request, cancellationToken);
     }
 

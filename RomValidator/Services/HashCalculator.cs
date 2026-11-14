@@ -3,6 +3,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using SharpCompress.Archives;
+using SharpCompress.Common;
 using RomValidator.Models;
 
 namespace RomValidator.Services;
@@ -461,6 +462,21 @@ public static partial class HashCalculator
                 LoggerService.LogInfo("HashCalculator", $"CRC read error for file '{fileName}': {ex.Message}");
                 gameFile.ErrorMessage =
                     "The file cannot be read: data error (CRC). The file or the disk it is stored on may be corrupted.";
+                gameFile.Crc32 = "ERROR";
+                gameFile.Md5 = "ERROR";
+                gameFile.Sha1 = "ERROR";
+                gameFile.Sha256 = "ERROR";
+                return gameFile;
+            }
+            catch (SharpCompressException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Invalid compressed data inside an archive (bad deflate stream, truncated
+                // entry, unsupported codec, ...) is a property of the user's file, not an
+                // application bug. Log at Information level so no bug report is sent.
+                LoggerService.LogInfo("HashCalculator",
+                    $"Archive entry '{fileName}' could not be decompressed: {ex.Message}");
+                gameFile.ErrorMessage = "This file is corrupted or damaged within the archive";
+                gameFile.IsUserError = true;
                 gameFile.Crc32 = "ERROR";
                 gameFile.Md5 = "ERROR";
                 gameFile.Sha1 = "ERROR";

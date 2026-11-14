@@ -2,9 +2,9 @@
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net10.0-windows</TargetFramework>
+        <TargetFramework>net11.0-windows</TargetFramework>
         <UseWPF>true</UseWPF>
-        <LangVersion>14</LangVersion>
+        <LangVersion>15</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <ApplicationIcon>icon\icon.ico</ApplicationIcon>
@@ -39,7 +39,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Meziantou.Analyzer" Version="3.0.294">
+        <PackageReference Include="Meziantou.Analyzer" Version="3.0.339">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
@@ -50,7 +50,7 @@
         <PackageReference Include="Serilog" Version="4.4.0" />
         <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-        <PackageReference Include="SharpCompress" Version="0.50.4" />
+        <PackageReference Include="SharpCompress" Version="0.50.9" />
         <PackageReference Include="WPF-UI" Version="4.3.0" />
     </ItemGroup>
 

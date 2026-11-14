@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.IO.Compression;
 using RomValidator.Services;
 using Xunit;
@@ -75,6 +76,48 @@ public class HashCalculatorArchiveTests
         Assert.Single(results);
         Assert.True(results[0].IsUserError);
         Assert.Equal("ERROR", results[0].Crc32);
+    }
+
+    [Fact]
+    public async Task CalculateHashesAsyncCorruptZipEntryReturnsUserErrorEntry()
+    {
+        using var scope = new TempDirectoryScope();
+        var zipPath = Path.Combine(scope.Path, "corrupt-entry.zip");
+        var content = new byte[4096];
+        for (var i = 0; i < content.Length; i++)
+        {
+            content[i] = (byte)(i % 251);
+        }
+
+        CreateZip(zipPath, ("game.nes", content));
+        CorruptFirstEntryPayload(zipPath);
+
+        var results = await HashCalculator.CalculateHashesAsync(zipPath, CancellationToken.None);
+
+        Assert.Single(results);
+        Assert.Equal("game.nes", results[0].FileName);
+        Assert.True(results[0].IsUserError);
+        Assert.Equal("ERROR", results[0].Crc32);
+        Assert.Contains("corrupted", results[0].ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Overwrites the first byte of the first entry's deflate payload with a reserved
+    /// block header, making the compressed data invalid while keeping the zip readable.
+    /// </summary>
+    private static void CorruptFirstEntryPayload(string zipPath)
+    {
+        var bytes = File.ReadAllBytes(zipPath);
+        Assert.Equal(0x04034b50u, BinaryPrimitives.ReadUInt32LittleEndian(bytes));
+        var compressedSize = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(18));
+        var nameLength = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(26));
+        var extraLength = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(28));
+        var dataOffset = 30 + nameLength + extraLength;
+        Assert.True(compressedSize > 0);
+
+        // 0xFF sets BFINAL=1 and BTYPE=3 (reserved/invalid block type).
+        bytes[dataOffset] = 0xFF;
+        File.WriteAllBytes(zipPath, bytes);
     }
 
     private static void CreateZip(string zipPath, params (string Name, byte[] Content)[] entries)

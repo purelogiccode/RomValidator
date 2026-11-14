@@ -190,7 +190,7 @@ public partial class MainWindow : IDisposable
     {
         try
         {
-            var aboutWindow = new AboutWindow(BugReportService) { Owner = this };
+            var aboutWindow = new AboutWindow { Owner = this };
             aboutWindow.ShowDialog();
         }
         catch (Exception ex)

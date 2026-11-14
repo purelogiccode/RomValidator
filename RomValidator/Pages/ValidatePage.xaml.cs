@@ -20,11 +20,11 @@ namespace RomValidator.Pages;
 public partial class ValidatePage : IDisposable
 {
     private readonly MainWindow _mainWindow;
-    private Dictionary<string, List<Rom>> _romDatabase = [];
-    private Dictionary<string, Rom> _romDatabaseBySha1 = [];
-    private Dictionary<string, Rom> _romDatabaseByMd5 = [];
-    private Dictionary<string, Rom> _romDatabaseByCrc = [];
-    private Dictionary<string, Rom> _romDatabaseBySha256 = [];
+    private Dictionary<string, List<Rom>> _romDatabase = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, Rom> _romDatabaseBySha1 = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, Rom> _romDatabaseByMd5 = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, Rom> _romDatabaseByCrc = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, Rom> _romDatabaseBySha256 = new(StringComparer.OrdinalIgnoreCase);
     private string _loadedDatFilePath = string.Empty;
     private DateTime _loadedDatFileTimestamp;
     private CancellationTokenSource? _cts;
@@ -1775,11 +1775,11 @@ public partial class ValidatePage : IDisposable
     private void ClearRomDatabase()
     {
         // Clear all ROM lookup dictionaries to prevent stale data (Issue 10 fix)
-        _romDatabase = [];
-        _romDatabaseBySha1 = [];
-        _romDatabaseByMd5 = [];
-        _romDatabaseByCrc = [];
-        _romDatabaseBySha256 = [];
+        _romDatabase = new(StringComparer.OrdinalIgnoreCase);
+        _romDatabaseBySha1 = new(StringComparer.OrdinalIgnoreCase);
+        _romDatabaseByMd5 = new(StringComparer.OrdinalIgnoreCase);
+        _romDatabaseByCrc = new(StringComparer.OrdinalIgnoreCase);
+        _romDatabaseBySha256 = new(StringComparer.OrdinalIgnoreCase);
         _loadedDatFilePath = string.Empty;
         _loadedDatFileTimestamp = DateTime.MinValue;
     }

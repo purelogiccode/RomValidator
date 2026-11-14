@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Navigation;
-using RomValidator.Interfaces;
 using RomValidator.Services;
 
 namespace RomValidator;
@@ -12,18 +11,13 @@ namespace RomValidator;
 /// </summary>
 public partial class AboutWindow
 {
-    /// <summary>Gets the bug report service for error tracking.</summary>
-    public IBugReportService BugReportService { get; }
-
     /// <summary>
     /// Initializes a new instance of the AboutWindow class.
     /// </summary>
-    /// <param name="bugReportService">The bug report service for error tracking.</param>
-    public AboutWindow(IBugReportService bugReportService)
+    public AboutWindow()
     {
         try
         {
-            BugReportService = bugReportService;
             InitializeComponent();
             AppVersionTextBlock.Text = $"Version: {GetApplicationVersion()}";
         }

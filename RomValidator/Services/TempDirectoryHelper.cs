@@ -8,9 +8,9 @@ namespace RomValidator.Services;
 /// </summary>
 public static class TempDirectoryHelper
 {
-    private static readonly HashSet<string> TrackedDirectories = [];
+    private static readonly HashSet<string> TrackedDirectories = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Lock TrackLock = new();
-    private static readonly HashSet<string> PendingBackgroundRetries = [];
+    private static readonly HashSet<string> PendingBackgroundRetries = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Lock RetryLock = new();
     private static Timer? _backgroundRetryTimer;
 
