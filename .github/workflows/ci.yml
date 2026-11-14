@@ -96,14 +96,10 @@ jobs:
       - name: Run inspectcode
         shell: pwsh
         run: |
-          jb inspectcode CSharp_RomValidator.sln `
-            --output "$env:TEMP/inspectcode.sarif" `
-            --format=Sarif `
-            --severity=WARNING `
-            --verbosity=WARN
+          jb inspectcode CSharp_RomValidator.sln --output "$env:RUNNER_TEMP/inspectcode.sarif" --format=Sarif --severity=WARNING --verbosity=WARN
           if ($LASTEXITCODE -ne 0) { throw "jb inspectcode failed with exit code $LASTEXITCODE." }
 
-          $results = (Get-Content "$env:TEMP/inspectcode.sarif" -Raw | ConvertFrom-Json).runs[0].results
+          $results = (Get-Content "$env:RUNNER_TEMP/inspectcode.sarif" -Raw | ConvertFrom-Json).runs[0].results
           if ($results.Count -gt 0) {
             $results | ForEach-Object {
               "{0}: {1} ({2})" -f $_.ruleId, $_.message.text,
