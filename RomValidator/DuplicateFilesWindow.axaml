@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RomValidator.DuplicateFilesWindow"
+        Icon="avares://RomValidator/icon/icon.png"
+        Title="Duplicate Files Detected"
+        Width="840"
+        Height="620"
+        MinWidth="640"
+        MinHeight="420"
+        CanMinimize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource WindowBackgroundBrush}">
+    <Grid Margin="18" RowDefinitions="Auto,Auto,*,Auto">
+        <TextBlock Grid.Row="0"
+                   Text="Duplicate Files Detected"
+                   Classes="subtitle"
+                   Margin="0,0,0,12" />
+
+        <Border Grid.Row="1"
+                Background="{StaticResource DuplicateWarningBackgroundBrush}"
+                BorderBrush="{StaticResource DuplicateWarningBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12"
+                Margin="0,0,0,14">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Warning: Duplicate ROMs detected in the input folder!"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource DuplicateWarningTextBrush}" />
+                <TextBlock Text="These are the same ROM data stored under different filenames."
+                           Foreground="{StaticResource SecondaryTextBrush}" />
+                <TextBlock Text="Consider removing duplicates before exporting the DAT file."
+                           Foreground="{StaticResource SecondaryTextBrush}" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2"
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderGrayBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Margin="0,0,0,14">
+            <Grid RowDefinitions="Auto,*">
+                <Border Grid.Row="0"
+                        Background="{StaticResource SurfaceRaisedBrush}"
+                        BorderBrush="{StaticResource BorderGrayBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="12,9">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Column="0" Text="Duplicate Groups:" Classes="label" FontSize="12" />
+                        <TextBlock Grid.Column="1"
+                                   Text=" (same SHA256 hash, different filenames)"
+                                   Classes="muted"
+                                   Margin="6,0,0,0"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2"
+                                   x:Name="DuplicateCountText"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+
+                <DataGrid Grid.Row="1"
+                          x:Name="DuplicateListView"
+                          AutoGenerateColumns="False"
+                          BorderThickness="0"
+                          GridLinesVisibility="Horizontal"
+                          IsReadOnly="True"
+                          CanUserReorderColumns="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="SHA256 Hash" Binding="{Binding Hash}" Width="320" />
+                        <DataGridTextColumn Header="Filenames" Binding="{Binding Filenames}" Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <Button Grid.Row="3"
+                Content="Close"
+                Classes="primary"
+                Width="110"
+                HorizontalAlignment="Right"
+                Click="CloseButton_Click" />
+    </Grid>
+</Window>

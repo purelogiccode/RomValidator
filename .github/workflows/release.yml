@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to build and publish (e.g. release_2.9.0)"
+        description: "Release tag to build and publish (e.g. release_3.0.0)"
         required: true
         type: string
 
@@ -43,11 +43,29 @@ jobs:
   package:
     name: Package ${{ matrix.rid }}
     needs: verify
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        rid: [win-x64, win-arm64]
+        include:
+          - rid: win-x64
+            os: windows-latest
+            archive: zip
+          - rid: win-arm64
+            os: windows-latest
+            archive: zip
+          - rid: linux-x64
+            os: ubuntu-latest
+            archive: tar.gz
+          - rid: linux-arm64
+            os: ubuntu-latest
+            archive: tar.gz
+          - rid: osx-x64
+            os: macos-15-intel
+            archive: dmg
+          - rid: osx-arm64
+            os: macos-15
+            archive: dmg
 
     steps:
       - name: Checkout
@@ -71,26 +89,95 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Publish
-        run: >
-          dotnet publish RomValidator/RomValidator.csproj
-          --configuration Release
-          --runtime ${{ matrix.rid }}
-          --output publish/${{ matrix.rid }}
-          --no-self-contained
-          -p:PublishSingleFile=true
+        shell: pwsh
+        run: |
+          dotnet publish RomValidator/RomValidator.csproj `
+            --configuration Release `
+            --runtime ${{ matrix.rid }} `
+            --self-contained true `
+            --output "publish/${{ matrix.rid }}" `
+            -p:Version=${{ steps.version.outputs.version }} `
+            -p:PublishSingleFile=false
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 
       - name: Add license, readme and whatsnew to the bundle
         shell: pwsh
         run: |
           Copy-Item LICENSE.txt, ReadMe.md, WhatsNew.md "publish/${{ matrix.rid }}/"
 
-      - name: Create zip and checksum
+      - name: Create Windows zip
+        if: matrix.archive == 'zip'
         shell: pwsh
         run: |
           $zip = "release_${{ steps.version.outputs.version }}_${{ matrix.rid }}.zip"
           Compress-Archive -Path "publish/${{ matrix.rid }}/*" -DestinationPath $zip -CompressionLevel Optimal
-          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $zip" | Set-Content -Path "$zip.sha256" -Encoding ascii
+
+      - name: Create Linux tar.gz
+        if: matrix.archive == 'tar.gz'
+        shell: pwsh
+        run: |
+          chmod +x "publish/${{ matrix.rid }}/RomValidator"
+          $archive = "release_${{ steps.version.outputs.version }}_${{ matrix.rid }}.tar.gz"
+          tar -czf $archive -C "publish/${{ matrix.rid }}" .
+
+      - name: Create macOS disk image
+        if: matrix.archive == 'dmg'
+        shell: pwsh
+        run: |
+          $publish = "publish/${{ matrix.rid }}"
+          $stage = "dmg-staging"
+          $app = "$stage/ROM Validator.app"
+          $contents = "$app/Contents"
+          $macOs = "$contents/MacOS"
+          $resources = "$contents/Resources"
+          New-Item -ItemType Directory -Force -Path $macOs, $resources | Out-Null
+          Copy-Item "$publish/*" $macOs -Recurse -Force
+
+          $iconset = "$stage/AppIcon.iconset"
+          New-Item -ItemType Directory -Force -Path $iconset | Out-Null
+          foreach ($size in @(16, 32, 128, 256, 512)) {
+            & sips -z $size $size "RomValidator/icon/icon.png" --out "$iconset/icon_${size}x${size}.png" | Out-Null
+            $double = $size * 2
+            & sips -z $double $double "RomValidator/icon/icon.png" --out "$iconset/icon_${size}x${size}@2x.png" | Out-Null
+          }
+          & iconutil -c icns $iconset -o "$resources/AppIcon.icns"
+
+          $plist = @"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>ROM Validator</string>
+            <key>CFBundleDisplayName</key><string>ROM Validator</string>
+            <key>CFBundleIdentifier</key><string>com.purelogiccode.romvalidator</string>
+            <key>CFBundleVersion</key><string>${{ steps.version.outputs.version }}</string>
+            <key>CFBundleShortVersionString</key><string>${{ steps.version.outputs.version }}</string>
+            <key>CFBundleExecutable</key><string>RomValidator</string>
+            <key>CFBundleIconFile</key><string>AppIcon</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          "@
+          Set-Content -Path "$contents/Info.plist" -Value $plist -Encoding utf8NoBOM
+          chmod +x "$macOs/RomValidator"
+          codesign --force --deep --sign - "$app"
+          if ($LASTEXITCODE -ne 0) { Write-Warning "Ad-hoc codesign failed; the app may require manual approval." }
+
+          $dmg = "release_${{ steps.version.outputs.version }}_${{ matrix.rid }}.dmg"
+          hdiutil create -volname "ROM Validator" -srcfolder $app -ov -format UDZO $dmg
+
+      - name: Create checksum
+        shell: pwsh
+        run: |
+          $artifact = Get-ChildItem -File -Filter "release_${{ steps.version.outputs.version }}_${{ matrix.rid }}.*" |
+            Where-Object { $_.Extension -ne ".sha256" } |
+            Select-Object -First 1
+          if ($null -eq $artifact) { throw "Package artifact not found." }
+          $hash = (Get-FileHash $artifact.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($artifact.Name)" | Set-Content -Path "$($artifact.FullName).sha256" -Encoding ascii
 
       - name: Upload package
         uses: actions/upload-artifact@v4
@@ -98,7 +185,9 @@ jobs:
           name: package-${{ matrix.rid }}
           path: |
             release_*.zip
-            release_*.zip.sha256
+            release_*.tar.gz
+            release_*.dmg
+            release_*.sha256
           if-no-files-found: error
 
   release:
@@ -142,6 +231,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
           gh release create "${{ steps.version.outputs.tag }}"
-          packages/*.zip packages/*.sha256
+          packages/*
           --title "ROM Validator ${{ steps.version.outputs.version }}"
           --generate-notes

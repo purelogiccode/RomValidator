@@ -1,15 +1,15 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Windows;
-using System.Windows.Threading;
 using System.Xml;
 using System.Xml.Serialization;
-using Microsoft.Win32;
+using Avalonia.Controls;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using RomValidator.Models.NoIntro;
 using RomValidator.Services;
+using RomValidator.Views;
 
 namespace RomValidator.Pages;
 
@@ -17,7 +17,7 @@ namespace RomValidator.Pages;
 /// Page that validates ROM files in a folder against a No-Intro DAT file.
 /// Supports moving, renaming, and deleting files based on the validation result.
 /// </summary>
-public partial class ValidatePage : IDisposable
+public partial class ValidatePage : UserControl, IDisposable
 {
     private readonly MainWindow _mainWindow;
     private Dictionary<string, List<Rom>> _romDatabase = new(StringComparer.OrdinalIgnoreCase);
@@ -41,6 +41,13 @@ public partial class ValidatePage : IDisposable
     private int _duplicateCount;
     private readonly Stopwatch _operationTimer = new();
 
+    /// <summary>Initializes a new instance for the XAML designer.</summary>
+    public ValidatePage()
+    {
+        _mainWindow = null!;
+        InitializeComponent();
+    }
+
     /// <summary>
     /// Initializes a new instance of the ValidatePage class.
     /// </summary>
@@ -51,6 +58,13 @@ public partial class ValidatePage : IDisposable
         try
         {
             InitializeComponent();
+
+            BrowseRomsFolderButton.Click += async (_, _) => await BrowseRomsFolderAsync();
+            BrowseDatFileButton.Click += async (_, _) => await BrowseDatFileAsync();
+            StartValidationButton.Click += async (_, _) => await StartValidationAsync();
+            DownloadDatFilesButton.Click += async (_, _) => await DownloadDatFilesAsync();
+            CancelButton.Click += (_, _) => CancelValidation();
+
             SetupCheckboxHandlers();
             DisplayInstructions();
             ClearDatInfoDisplay();
@@ -65,7 +79,7 @@ public partial class ValidatePage : IDisposable
     private void SetupCheckboxHandlers()
     {
         // Make Delete and Move mutually exclusive for safety
-        DeleteFailedCheckBox.Checked += (_, _) =>
+        DeleteFailedCheckBox.IsCheckedChanged += (_, _) =>
         {
             if (DeleteFailedCheckBox.IsChecked == true)
             {
@@ -73,7 +87,7 @@ public partial class ValidatePage : IDisposable
             }
         };
 
-        MoveFailedCheckBox.Checked += (_, _) =>
+        MoveFailedCheckBox.IsCheckedChanged += (_, _) =>
         {
             if (MoveFailedCheckBox.IsChecked == true)
             {
@@ -97,7 +111,7 @@ public partial class ValidatePage : IDisposable
         LogMessage("--- Ready for validation ---");
     }
 
-    private async void StartValidationButton_ClickAsync(object sender, RoutedEventArgs e)
+    private async Task StartValidationAsync()
     {
         CancellationTokenSource? operationCts = null; // Capture variable for this operation
         try
@@ -111,7 +125,7 @@ public partial class ValidatePage : IDisposable
 
             if (string.IsNullOrEmpty(romsFolderPath) || string.IsNullOrEmpty(datFilePath))
             {
-                ShowError("Please select both a ROMs folder and a DAT file.");
+                await ShowErrorAsync("Please select both a ROMs folder and a DAT file.");
                 if (operationCts != null)
                     await _mainWindow.UpdateStatusBarMessageAsync("Error: Please select paths.", operationCts.Token);
                 return;
@@ -119,7 +133,7 @@ public partial class ValidatePage : IDisposable
 
             if (!Directory.Exists(romsFolderPath))
             {
-                ShowError($"The selected ROMs folder does not exist: {romsFolderPath}");
+                await ShowErrorAsync($"The selected ROMs folder does not exist: {romsFolderPath}");
                 if (operationCts != null)
                     await _mainWindow.UpdateStatusBarMessageAsync("Error: ROMs folder not found.", operationCts.Token);
                 return;
@@ -127,7 +141,7 @@ public partial class ValidatePage : IDisposable
 
             if (!File.Exists(datFilePath))
             {
-                ShowError($"The selected DAT file does not exist: {datFilePath}");
+                await ShowErrorAsync($"The selected DAT file does not exist: {datFilePath}");
                 if (operationCts != null)
                     await _mainWindow.UpdateStatusBarMessageAsync("Error: DAT file not found.", operationCts.Token);
                 return;
@@ -136,16 +150,17 @@ public partial class ValidatePage : IDisposable
             // Confirmation dialog for permanent deletion
             if (deleteFailed)
             {
-                var confirmationResult = MessageBox.Show(
+                var confirmationResult = await DialogService.ShowAsync(
+                    _mainWindow,
                     "WARNING: You have selected to PERMANENTLY DELETE failed/unknown files.\n\n" +
                     "This action CANNOT be undone. Files will be permanently removed from your disk.\n\n" +
                     $"Source folder: {romsFolderPath}\n\n" +
                     "Are you absolutely sure you want to continue?",
                     "Confirm Permanent Deletion",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning);
+                    DialogButtons.YesNo,
+                    DialogIcon.Warning);
 
-                if (confirmationResult != MessageBoxResult.Yes)
+                if (confirmationResult != DialogResult.Yes)
                 {
                     if (operationCts != null)
                         await _mainWindow.UpdateStatusBarMessageAsync("Validation cancelled - deletion not confirmed.",
@@ -190,7 +205,7 @@ public partial class ValidatePage : IDisposable
 
             if (!datLoaded)
             {
-                ShowError("Failed to load or parse the DAT file. Please check the log for details.");
+                await ShowErrorAsync("Failed to load or parse the DAT file. Please check the log for details.");
                 await _mainWindow.UpdateStatusBarMessageAsync("DAT file load failed.", operationCts.Token);
                 return;
             }
@@ -209,7 +224,7 @@ public partial class ValidatePage : IDisposable
         catch (Exception ex)
         {
             LogMessage($"An unexpected error occurred: {ex.Message}");
-            ShowError($"An unexpected error occurred during validation: {ex.Message}");
+            await ShowErrorAsync($"An unexpected error occurred during validation: {ex.Message}");
             if (operationCts != null)
                 await _mainWindow.UpdateStatusBarMessageAsync("Validation failed with an error.", operationCts.Token);
             _ = _mainWindow.BugReportService.SendBugReportAsync("Exception during PerformValidationAsync", ex);
@@ -219,7 +234,7 @@ public partial class ValidatePage : IDisposable
             _operationTimer.Stop();
             UpdateProcessingTimeDisplay();
             SetControlsState(true);
-            LogOperationSummary();
+            await LogOperationSummaryAsync();
 
             // Dispose only this operation's CTS instance
             lock (_ctsLock)
@@ -265,7 +280,7 @@ public partial class ValidatePage : IDisposable
                 await Task.Run(() => Directory.EnumerateFiles(romsFolderPath, "*", enumerationOptions).ToArray(),
                     token);
             _totalFilesToProcess = filesToScan.Length;
-            await Application.Current.Dispatcher.InvokeAsync(() => ProgressBar.Maximum = _totalFilesToProcess);
+            await Dispatcher.UIThread.InvokeAsync(() => ProgressBar.Maximum = _totalFilesToProcess);
             UpdateStatsDisplay();
             await LogMessageAsync($"Found {_totalFilesToProcess} files to validate.");
             await _mainWindow.UpdateStatusBarMessageAsync($"Found {_totalFilesToProcess} files. Starting validation...",
@@ -680,7 +695,7 @@ public partial class ValidatePage : IDisposable
                            $"The selected file '{Path.GetFileName(datFilePath)}' is not a recognized DAT file.\n\n" +
                            "Please select a valid No-Intro XML DAT file.";
             LogMessage($"Error: {errorMsg}");
-            ShowIncompatibleDatFileError(errorMsg);
+            await ShowIncompatibleDatFileErrorAsync(errorMsg);
             ClearRomDatabase();
             _mainWindow.UpdateStatusBarMessage("Invalid file type. Please select a .dat or .xml file.");
             return false;
@@ -730,7 +745,7 @@ public partial class ValidatePage : IDisposable
                                         "Please re-download a valid No-Intro XML DAT file from https://no-intro.org/";
                 LogMessage($"Error: {errorMsg}");
 
-                ShowIncompatibleDatFileError(errorMsg);
+                await ShowIncompatibleDatFileErrorAsync(errorMsg);
                 ClearRomDatabase();
                 _mainWindow.UpdateStatusBarMessage("DAT file is empty.");
                 return false;
@@ -750,7 +765,7 @@ public partial class ValidatePage : IDisposable
                     $"File Preview:\n{datFilePreview}";
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
-                ShowIncompatibleDatFileError(errorMsg);
+                await ShowIncompatibleDatFileErrorAsync(errorMsg);
                 ClearRomDatabase();
                 _mainWindow.UpdateStatusBarMessage("ZIP files are not supported.");
                 return false;
@@ -771,7 +786,7 @@ public partial class ValidatePage : IDisposable
                     $"File Preview:\n{datFilePreview}";
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
-                ShowIncompatibleDatFileError(errorMsg);
+                await ShowIncompatibleDatFileErrorAsync(errorMsg);
                 ClearRomDatabase();
                 _mainWindow.UpdateStatusBarMessage("HTML pages are not supported.");
                 return false;
@@ -789,7 +804,7 @@ public partial class ValidatePage : IDisposable
                                "Please select a valid No-Intro XML DAT file from https://no-intro.org/";
                 LogMessage($"Error: {errorMsg}");
 
-                ShowIncompatibleDatFileError(errorMsg);
+                await ShowIncompatibleDatFileErrorAsync(errorMsg);
                 ClearRomDatabase();
                 _mainWindow.UpdateStatusBarMessage($"{binaryFormat} files are not supported.");
                 return false;
@@ -838,7 +853,7 @@ public partial class ValidatePage : IDisposable
                                "Please download a compatible XML format DAT file from https://no-intro.org/";
                 LogMessage($"Error: {errorMsg}");
 
-                ShowIncompatibleDatFileError(errorMsg);
+                await ShowIncompatibleDatFileErrorAsync(errorMsg);
                 ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
                 _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
                 return false;
@@ -862,7 +877,7 @@ public partial class ValidatePage : IDisposable
                                         "Please select a valid No-Intro XML DAT file from https://no-intro.org/";
                 LogMessage($"Error: {errorMsg}");
 
-                ShowIncompatibleDatFileError(errorMsg);
+                await ShowIncompatibleDatFileErrorAsync(errorMsg);
                 ClearRomDatabase();
                 _mainWindow.UpdateStatusBarMessage("Binary files are not supported.");
                 return false;
@@ -907,7 +922,7 @@ public partial class ValidatePage : IDisposable
 
                     LogMessage($"Error: {errorMsg}");
 
-                    ShowIncompatibleDatFileError(errorMsg);
+                    await ShowIncompatibleDatFileErrorAsync(errorMsg);
                     ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
                     _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
                     return false;
@@ -933,7 +948,7 @@ public partial class ValidatePage : IDisposable
                     _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, xmlEx);
                 }
 
-                ShowIncompatibleDatFileError(errorMsg);
+                await ShowIncompatibleDatFileErrorAsync(errorMsg);
                 ClearRomDatabase();
                 _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
                 return false;
@@ -963,7 +978,7 @@ public partial class ValidatePage : IDisposable
                     $"File Preview:\n{datFilePreview}";
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
-                ShowIncompatibleDatFileError(errorMsg);
+                await ShowIncompatibleDatFileErrorAsync(errorMsg);
                 ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
                 _mainWindow.UpdateStatusBarMessage("Error: DAT file empty or invalid.");
                 return false;
@@ -1006,8 +1021,8 @@ public partial class ValidatePage : IDisposable
                 collisionMessage.AppendLine("Validation will attempt to match by hash, but results may be unexpected.");
 
                 LogMessage($"WARNING: DAT file has {datCollisions.Count} filename collision(s)!");
-                MessageBox.Show(_mainWindow, collisionMessage.ToString(), "DAT File Contains Filename Collisions",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                await DialogService.ShowAsync(_mainWindow, collisionMessage.ToString(),
+                    "DAT File Contains Filename Collisions", DialogButtons.Ok, DialogIcon.Warning);
             }
 
             // Build hash-based lookup dictionaries
@@ -1048,13 +1063,13 @@ public partial class ValidatePage : IDisposable
                     $"File Preview:\n{datFilePreview}";
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
-                ShowIncompatibleDatFileError(errorMsg);
+                await ShowIncompatibleDatFileErrorAsync(errorMsg);
                 ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
                 _mainWindow.UpdateStatusBarMessage("Error: No ROM entries found.");
                 return false;
             }
 
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 DatNameTextBlock.Text = datafile.Header?.Name ?? "N/A";
                 DatDescriptionTextBlock.Text = datafile.Header?.Description ?? "N/A";
@@ -1101,7 +1116,7 @@ public partial class ValidatePage : IDisposable
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, ex);
             }
 
-            ShowIncompatibleDatFileError(errorMsg);
+            await ShowIncompatibleDatFileErrorAsync(errorMsg);
             ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
             ClearDatInfoDisplay();
             _mainWindow.UpdateStatusBarMessage("Error: Failed to parse DAT file.");
@@ -1131,7 +1146,7 @@ public partial class ValidatePage : IDisposable
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, xmlEx);
             }
 
-            ShowIncompatibleDatFileError(errorMsg);
+            await ShowIncompatibleDatFileErrorAsync(errorMsg);
             ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
             ClearDatInfoDisplay();
             _mainWindow.UpdateStatusBarMessage("Error: Invalid XML format.");
@@ -1154,7 +1169,7 @@ public partial class ValidatePage : IDisposable
                                 $"File Preview:\n{datFilePreview}";
             _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, ex);
 
-            ShowError(errorMsg);
+            await ShowErrorAsync(errorMsg);
             ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
             ClearDatInfoDisplay();
             _mainWindow.UpdateStatusBarMessage("Error: Failed to load DAT file.");
@@ -1162,10 +1177,10 @@ public partial class ValidatePage : IDisposable
         }
     }
 
-    private void ShowIncompatibleDatFileError(string message)
+    private Task ShowIncompatibleDatFileErrorAsync(string message)
     {
-        MessageBox.Show(_mainWindow, message, "Incompatible DAT File Format",
-            MessageBoxButton.OK, MessageBoxImage.Warning);
+        return DialogService.ShowAsync(_mainWindow, message, "Incompatible DAT File Format",
+            DialogButtons.Ok, DialogIcon.Warning);
     }
 
     /// <summary>
@@ -1428,14 +1443,14 @@ public partial class ValidatePage : IDisposable
                     LogMessage($"   -> File locked after {maxRetries} attempts: {Path.GetFileName(sourcePath)}");
                     _mainWindow.UpdateStatusBarMessage($"File is locked: {Path.GetFileName(sourcePath)}");
 
-                    var result = MessageBox.Show(_mainWindow,
+                    var result = await DialogService.ShowAsync(_mainWindow,
                         $"The file '{Path.GetFileName(sourcePath)}' is locked by another process.\n\n" +
                         "Please close the application using this file, then click Retry.",
                         "File In Use",
-                        MessageBoxButton.RetryCancel,
-                        MessageBoxImage.Warning);
+                        DialogButtons.RetryCancel,
+                        DialogIcon.Warning);
 
-                    if (result == MessageBoxResult.Retry)
+                    if (result == DialogResult.Retry)
                     {
                         attempt = 0; // Reset retry counter
                         continue;
@@ -1582,33 +1597,59 @@ public partial class ValidatePage : IDisposable
 
     #region UI and Control Methods
 
-    private void BrowseRomsFolderButton_Click(object sender, RoutedEventArgs e)
+    private async Task BrowseRomsFolderAsync()
     {
         try
         {
-            var dialog = new OpenFolderDialog { Title = "Select the folder containing your ROM files" };
-            if (dialog.ShowDialog() != true) return;
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel is null)
+            {
+                return;
+            }
 
-            RomsFolderTextBox.Text = dialog.FolderName;
-            LogMessage($"ROMs folder selected: {dialog.FolderName}");
-            _mainWindow.UpdateStatusBarMessage($"ROMs folder selected: {Path.GetFileName(dialog.FolderName)}");
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Select the folder containing your ROM files",
+                AllowMultiple = false
+            });
+
+            var folderPath = folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+            if (string.IsNullOrEmpty(folderPath)) return;
+
+            RomsFolderTextBox.Text = folderPath;
+            LogMessage($"ROMs folder selected: {folderPath}");
+            _mainWindow.UpdateStatusBarMessage($"ROMs folder selected: {Path.GetFileName(folderPath)}");
         }
         catch (Exception ex)
         {
-            // LogException already forwards the report to the bug report API via the Serilog sink.
             LoggerService.LogException("ValidatePage", ex, "Error selecting ROMs folder");
         }
     }
 
-    private async void BrowseDatFileButton_ClickAsync(object sender, RoutedEventArgs e)
+    private async Task BrowseDatFileAsync()
     {
         try
         {
-            var dialog = new OpenFileDialog
-                { Title = "Select the DAT file", Filter = "DAT Files (*.dat)|*.dat|All files (*.*)|*.*" };
-            if (dialog.ShowDialog() != true) return;
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel is null)
+            {
+                return;
+            }
 
-            var selectedDatFileName = dialog.FileName;
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Select the DAT file",
+                AllowMultiple = false,
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("DAT files") { Patterns = ["*.dat", "*.xml"] },
+                    FilePickerFileTypes.All
+                ]
+            });
+
+            var selectedDatFileName = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+            if (string.IsNullOrEmpty(selectedDatFileName)) return;
+
             DatFileTextBox.Text = selectedDatFileName;
             LogMessage($"DAT file selected: {selectedDatFileName}");
             _mainWindow.UpdateStatusBarMessage(
@@ -1621,7 +1662,7 @@ public partial class ValidatePage : IDisposable
         }
     }
 
-    private void DownloadDatFilesButton_Click(object sender, RoutedEventArgs e)
+    private async Task DownloadDatFilesAsync()
     {
         const string noIntroUrl = "https://no-intro.org/";
         try
@@ -1632,13 +1673,13 @@ public partial class ValidatePage : IDisposable
         }
         catch (Exception ex)
         {
-            ShowError($"Unable to open browser to {noIntroUrl}: {ex.Message}");
+            await ShowErrorAsync($"Unable to open browser to {noIntroUrl}: {ex.Message}");
             _ = _mainWindow.BugReportService.SendBugReportAsync(
                 $"Error opening no-intro.org for DAT files: {noIntroUrl}", ex);
         }
     }
 
-    private void CancelButton_Click(object sender, RoutedEventArgs e)
+    private void CancelValidation()
     {
         try
         {
@@ -1666,7 +1707,7 @@ public partial class ValidatePage : IDisposable
         RenameMatchedFilesCheckBox.IsEnabled = enabled;
         DownloadDatFilesButton.IsEnabled = enabled;
         StartValidationButton.IsEnabled = enabled;
-        CancelButton.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+        CancelButton.IsVisible = !enabled;
         CancelButton.IsEnabled = !enabled;
 
         if (enabled)
@@ -1681,31 +1722,35 @@ public partial class ValidatePage : IDisposable
         }
     }
 
+    private void AppendLog(string text)
+    {
+        LogViewer.Text += text;
+        LogViewer.CaretIndex = LogViewer.Text?.Length ?? 0;
+    }
+
     private void LogMessage(string message)
     {
         var timestampedMessage = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
         // Fire-and-forget UI update: intentional, so discard the result (MA0134)
-        _ = Application.Current.Dispatcher.InvokeAsync(() =>
+        _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
-            LogViewer.AppendText($"{timestampedMessage}{Environment.NewLine}");
-            LogViewer.ScrollToEnd();
+            AppendLog($"{timestampedMessage}{Environment.NewLine}");
         }, DispatcherPriority.Background);
     }
 
     private async Task LogMessageAsync(string message)
     {
         var timestampedMessage = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
-        await Application.Current.Dispatcher.InvokeAsync(() =>
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            LogViewer.AppendText($"{timestampedMessage}{Environment.NewLine}");
-            LogViewer.ScrollToEnd();
+            AppendLog($"{timestampedMessage}{Environment.NewLine}");
         }, DispatcherPriority.Background);
     }
 
     private static async Task FlushUiUpdatesAsync()
     {
         // Force the dispatcher to process pending UI updates
-        await Application.Current.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.Render);
+        await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Render);
     }
 
     private void ResetOperationStats()
@@ -1727,7 +1772,7 @@ public partial class ValidatePage : IDisposable
     private void UpdateStatsDisplay()
     {
         // Fire-and-forget UI update: intentional, so discard the result (MA0134)
-        _ = Application.Current.Dispatcher.InvokeAsync(() =>
+        _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
             TotalFilesValue.Text = _totalFilesToProcess.ToString(CultureInfo.InvariantCulture);
             SuccessValue.Text = _successCount.ToString(CultureInfo.InvariantCulture);
@@ -1743,14 +1788,14 @@ public partial class ValidatePage : IDisposable
     {
         var elapsed = _operationTimer.Elapsed;
         // Fire-and-forget UI update: intentional, so discard the result (MA0134)
-        _ = Application.Current.Dispatcher.InvokeAsync(() => ProcessingTimeValue.Text = $@"{elapsed:hh\:mm\:ss}");
+        _ = Dispatcher.UIThread.InvokeAsync(() => ProcessingTimeValue.Text = $@"{elapsed:hh\:mm\:ss}");
     }
 
     private void UpdateProgressDisplay(int current, int total, string currentFileName)
     {
         var percentage = total == 0 ? 0 : (double)current / total * 100;
         // Fire-and-forget UI update: intentional, so discard the result (MA0134)
-        _ = Application.Current.Dispatcher.InvokeAsync(() =>
+        _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
             ProgressText.Text = $"Validating file {current} of {total}: {currentFileName} ({percentage:F1}%)";
             ProgressBar.Value = current;
@@ -1760,7 +1805,7 @@ public partial class ValidatePage : IDisposable
     private void ClearDatInfoDisplay()
     {
         // Fire-and-forget UI update: intentional, so discard the result (MA0134)
-        _ = Application.Current.Dispatcher.InvokeAsync(() =>
+        _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
             DatNameTextBlock.Text = "N/A";
             DatDescriptionTextBlock.Text = "N/A";
@@ -1784,7 +1829,7 @@ public partial class ValidatePage : IDisposable
         _loadedDatFileTimestamp = DateTime.MinValue;
     }
 
-    private void LogOperationSummary()
+    private async Task LogOperationSummaryAsync()
     {
         LogMessage("");
         LogMessage("--- Validation Completed ---");
@@ -1800,13 +1845,13 @@ public partial class ValidatePage : IDisposable
 
         var summaryText =
             $"Validation complete.\n\nSuccessful: {_successCount}\nFailed: {_failCount}\nUnknown: {_unknownCount}\nRenamed: {_renamedCount}\nDeleted: {_deletedCount}\nDuplicates: {_duplicateCount}";
-        MessageBox.Show(_mainWindow, summaryText, "Validation Complete", MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        await DialogService.ShowAsync(_mainWindow, summaryText, "Validation Complete",
+            DialogButtons.Ok, DialogIcon.Info);
     }
 
-    private void ShowError(string message)
+    private Task ShowErrorAsync(string message)
     {
-        MessageBox.Show(_mainWindow, message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        return DialogService.ShowAsync(_mainWindow, message, "Error", DialogButtons.Ok, DialogIcon.Error);
     }
 
     /// <summary>

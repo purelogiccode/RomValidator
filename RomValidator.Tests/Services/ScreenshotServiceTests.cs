@@ -14,7 +14,7 @@ public class ScreenshotServiceTests
     [Fact]
     public void CaptureActiveWindowScreenshotDoesNotThrowWithoutApplication()
     {
-        // In the test host there is no WPF Application running, so the service
+        // In the test host there is no Avalonia application running, so the service
         // must fail gracefully instead of throwing.
         var exception = Record.Exception(() => ScreenshotService.CaptureActiveWindowScreenshot());
 

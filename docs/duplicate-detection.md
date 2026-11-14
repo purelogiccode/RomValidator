@@ -30,7 +30,7 @@ files contain identical data under different names.
 ## What to do
 
 1. Review each group and decide which file name is correct.
-2. Delete or move the extra copies in File Explorer.
+2. Delete or move the extra copies in your file manager.
 3. Re-run **Start Hashing** so the results reflect the cleaned folder.
 4. Export the DAT file.
 

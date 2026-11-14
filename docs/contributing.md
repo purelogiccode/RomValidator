@@ -16,8 +16,12 @@ Thanks for your interest in improving ROM Validator.
    - what you expected to happen,
    - what actually happened,
    - the application version (see the About window),
-   - the relevant log file from `%LOCALAPPDATA%\ROM Validator\Logs`,
-   - a screenshot (press **F8**) when it helps.
+   - the relevant log file from the `Logs` folder of the per-user data directory
+     (`%LOCALAPPDATA%\ROM Validator\Logs` on Windows,
+     `~/Library/Application Support/ROM Validator/Logs` on macOS,
+     `~/.local/share/ROM Validator/Logs` on Linux),
+   - a screenshot (press **F8**) when it helps,
+   - your operating system and architecture.
 
 Warnings, errors and fatal events are forwarded automatically to the developer, but an issue
 with context is still the best way to get a fix.
@@ -42,8 +46,24 @@ collections or DAT files when relevant.
    dotnet test CSharp_RomValidator.sln --configuration Release --nologo
    ```
 
-5. Update the documentation in `docs/` when user-visible behavior changes.
-6. Open a pull request that describes the change and references the related issue.
+5. Run the JetBrains inspection over the whole solution and fix every finding:
+
+   ```powershell
+   jb inspectcode CSharp_RomValidator.sln `
+     --output "$env:TEMP\romvalidator-inspectcode.sarif" `
+     --format=Sarif `
+     --severity=WARNING `
+     --verbosity=WARN
+   ```
+
+6. Update the documentation in `docs/` when user-visible behavior changes.
+7. Open a pull request that describes the change and references the related issue.
+
+The solution builds on Windows, Linux and macOS, and CI runs the build, the test suite and the
+inspection on those platforms. Keep UI code portable: use Avalonia XAML and controls, the Avalonia
+storage provider for file and folder pickers, `Dispatcher.UIThread` for UI updates, and
+`Process.Start` with `UseShellExecute = true` for shell integration. Do not add WPF, WinForms or
+Windows-only APIs.
 
 ## Documentation
 

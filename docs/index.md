@@ -2,14 +2,14 @@
 title: Home
 layout: home
 nav_order: 1
-description: "ROM Validator documentation - validate ROM collections and generate No-Intro DAT files."
+description: "ROM Validator documentation - validate ROM collections and generate No-Intro DAT files on Windows, Linux and macOS."
 permalink: /
 ---
 
 # ROM Validator
 
-A Windows desktop application for validating ROM files against DAT files and generating new
-No-Intro compliant DAT files from your collection.
+A cross-platform desktop application for Windows, Linux and macOS that validates ROM files
+against DAT files and generates new No-Intro compliant DAT files from your collection.
 
 ![ROM Validator main window](assets/images/screenshot.png)
 
@@ -35,15 +35,29 @@ No-Intro compliant DAT files from your collection.
 
 ## Key features
 
+- **Cross-platform** desktop application built with Avalonia 12.1 and a modern dark theme,
+  available for Windows, Linux and macOS on x64 and ARM64.
 - **ROM validation** against No-Intro XML DAT files with CRC32, MD5, SHA-1 and SHA-256 checks.
 - **DAT generation** from any folder of ROMs, including duplicate detection.
-- **Archive support** for `.zip`, `.7z` and `.rar` using SharpCompress, with the bundled
-  `7za.exe` / `7za_arm64.exe` (7-Zip 26.03) as a fallback.
+- **Archive support** for `.zip`, `.7z` and `.rar` using SharpCompress. The Windows bundles include
+  `7za.exe` / `7za_arm64.exe` (7-Zip 26.03) as a fallback; on Linux and macOS a system-installed
+  `7zz`, `7z` or `7za` is used when available.
 - **Safe file operations**: moves go to `_success`, `_fail` and `_duplicate` folders; deletion
   is opt-in and requires confirmation.
 - **Automatic update checks** against GitHub releases.
 - **Robust diagnostics**: rolling log files, F8 screenshots, and automatic bug reports for
   Warning, Error and Fatal events.
+
+## Platforms
+
+| Platform | Architectures | Release bundle |
+|:---------|:--------------|:---------------|
+| Windows 10/11 | x64, ARM64 | `.zip` |
+| Linux | x64, ARM64 | `.tar.gz` |
+| macOS 11+ | Intel, Apple Silicon | `.dmg` (contains `ROM Validator.app`) |
+
+Release bundles are self-contained, so no separate .NET runtime is required. Every bundle also
+includes `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
 
 ## Project links
 

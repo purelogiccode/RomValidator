@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.IO;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using SharpCompress.Archives;

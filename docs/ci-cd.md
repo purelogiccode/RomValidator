@@ -15,46 +15,56 @@ publish its artifacts and documentation.
 | Property | Value |
 |:---------|:------|
 | Triggers | Push to `master`, pull requests, manual dispatch |
-| Runner | `windows-latest` |
-| Steps | Restore, build (Release), test, upload test results and coverage |
+| Runners | `windows-latest`, `ubuntu-latest`, `macos-latest` |
+| Steps | Restore, build (Release), test, upload test results and coverage on each OS |
+| Inspection | A separate `inspectcode` job runs `jb inspectcode` on `windows-latest` and fails on any finding |
 
-The build runs the Meziantou and Roslynator analyzers with warnings treated as errors, so a
-green CI run means zero compiler and analyzer warnings.
+The build matrix runs on all three desktop platforms, so platform-specific code is compiled and
+tested everywhere. The build also runs the Meziantou and Roslynator analyzers with warnings
+treated as errors, so a green CI run means zero compiler and analyzer warnings. The
+`inspectcode` job adds the JetBrains inspection gate: the run must report zero findings.
 
-Test results (`*.trx`) and coverage output are uploaded as the `test-results` artifact.
+Test results (`*.trx`) and coverage output are uploaded as per-platform artifacts
+(`test-results-<os>` and `code-coverage-<os>`).
 
 ## Release - `release.yml`
 
 | Property | Value |
 |:---------|:------|
 | Triggers | Push of a `release_*` or `v*` tag, or manual dispatch with a tag input |
-| Runner | `windows-latest` (verify + package), `ubuntu-latest` (publish) |
+| Runners | `windows-latest` (verify), plus one package job per target platform |
 | Permissions | `contents: write` |
 
 Flow:
 
-1. **verify** - builds and runs the full test suite.
-2. **package** - publishes `win-x64` and `win-arm64` builds as single-file, framework-dependent
-   executables and creates:
-   - `release_<version>_win-x64.zip`
-   - `release_<version>_win-arm64.zip`
-   - a `.sha256` checksum file for each zip.
+1. **verify** - builds and runs the full test suite on `windows-latest`.
+2. **package** - publishes self-contained builds (`--self-contained true`,
+   `-p:PublishSingleFile=false`) for six runtime identifiers and creates:
 
-   Every zip contains `RomValidator.exe`, the bundled 7-Zip fallback executables
-   (`7za.exe` / `7za_arm64.exe`), and `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
+   | Platform | Runtime identifiers | Bundle |
+   |:---------|:--------------------|:-------|
+   | Windows | `win-x64`, `win-arm64` | `release_<version>_<rid>.zip` |
+   | Linux | `linux-x64`, `linux-arm64` | `release_<version>_<rid>.tar.gz` |
+   | macOS | `osx-x64`, `osx-arm64` | `release_<version>_<rid>.dmg` |
+
+   A `.sha256` checksum file is created for every bundle. Windows zips contain
+   `RomValidator.exe` and the bundled 7-Zip fallback executables (`7za.exe` / `7za_arm64.exe`).
+   Linux archives contain the executable, which is marked executable before packaging. macOS
+   disk images contain `ROM Validator.app` with an ad-hoc signature and app icon. Every bundle
+   also includes `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
 3. **release** - checks out the repository history, then creates a GitHub release for the tag and
-   attaches all zips and checksums, with automatically generated release notes.
+   attaches all bundles and checksums, with automatically generated release notes.
 
 ### Creating a release
 
 ```powershell
-git tag release_2.9.0
-git push origin release_2.9.0
+git tag release_3.0.0
+git push origin release_3.0.0
 ```
 
-The version in the zip names comes from the tag (`release_` or a leading `v` is stripped). This
+The version in the bundle names comes from the tag (`release_` or a leading `v` is stripped). This
 naming convention is compatible with the in-app update check, which parses tags such as
-`release_2.9.0` and `v2.9.0`. Keep the tag in sync with `AssemblyVersion` / `FileVersion` in
+`release_3.0.0` and `v3.0.0`. Keep the tag in sync with `AssemblyVersion` / `FileVersion` in
 `RomValidator.csproj`.
 
 A manual dispatch of the workflow with the tag input can be used to re-publish an existing tag.

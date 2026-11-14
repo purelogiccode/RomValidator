@@ -12,8 +12,16 @@ description: "Frequently asked questions about ROM Validator."
 Yes. It is open source under the GPLv3 license.
 
 **Which platforms are supported?**
-Windows 10 and Windows 11 on x64 and ARM64. The user interface is WPF, so Linux and macOS are
-not supported.
+Windows 10/11, Linux and macOS 11 or later, on x64 and ARM64. The application is built with
+Avalonia, so the same UI runs on all three platforms.
+
+**Do I need to install .NET?**
+No. Release bundles are self-contained and include everything they need.
+
+**Which bundle should I download?**
+Use the Windows `.zip` for Windows, the Linux `.tar.gz` for Linux, and the macOS `.dmg` for macOS.
+Pick the x64 bundle for Intel/AMD machines and the arm64 bundle for ARM devices (including Apple
+Silicon). See [Getting Started](getting-started#install).
 
 **Does it modify my files?**
 Only when you ask it to. Validation reads files by default. Files are moved, renamed or deleted
@@ -51,11 +59,15 @@ Bug reports contain environment details and exception information, never your RO
 contents. See [Screenshots and Application Data](screenshots-and-data).
 
 **Where are the logs?**
-`%LOCALAPPDATA%\ROM Validator\Logs`, retained for seven days. Click **App Data** to open the
-folder.
+In the `Logs` folder of the per-user data directory, retained for seven days:
+`%LOCALAPPDATA%\ROM Validator\Logs` on Windows,
+`~/Library/Application Support/ROM Validator/Logs` on macOS, and
+`~/.local/share/ROM Validator/Logs` on Linux (XDG data directory when set). Click **App Data** to
+open the folder.
 
 **How do I take a screenshot?**
-Press **F8** anywhere in the application.
+Press **F8** anywhere in the application. Screenshots go to the `Screenshot` folder next to the
+executable, or to the per-user data folder when the application folder is read-only.
 
 ## Development
 

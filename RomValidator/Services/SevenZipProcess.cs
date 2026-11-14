@@ -1,51 +1,96 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Runtime.InteropServices;
 
 namespace RomValidator.Services;
 
 /// <summary>
-/// Fallback archive helper that invokes the standalone 7-Zip command-line tool
-/// (7za.exe or 7za_arm64.exe) for operations SharpCompress cannot perform, such as
-/// creating 7z archives or reading archives with unsupported compression methods.
+/// Fallback archive helper that invokes a standalone 7-Zip command-line tool
+/// (<c>7za.exe</c>/<c>7za_arm64.exe</c> on Windows or <c>7zz</c>/<c>7z</c> on
+/// Linux/macOS) for operations SharpCompress cannot perform, such as creating 7z
+/// archives or reading archives with unsupported compression methods.
 /// </summary>
 public static class SevenZipProcess
 {
-    private const string X64ExecutableName = "7za.exe";
-    private const string Arm64ExecutableName = "7za_arm64.exe";
+    private const string WindowsX64ExecutableName = "7za.exe";
+    private const string WindowsArm64ExecutableName = "7za_arm64.exe";
 
     /// <summary>
-    /// Gets the 7za executable matching the current process architecture, or null
-    /// when no executable is present next to the application.
+    /// Gets the 7-Zip executable matching the current platform and architecture, or
+    /// null when no executable is present next to the application or on the PATH.
     /// </summary>
-    /// <returns>The full path to the 7za executable, or null when it is missing.</returns>
+    /// <returns>The full path to the 7-Zip executable, or null when it is missing.</returns>
     public static string? GetExecutablePath()
     {
         try
         {
             var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            var isArm64 = RuntimeInformation.OSArchitecture == Architecture.Arm64;
 
-            var preferred = Path.Combine(baseDirectory, isArm64 ? Arm64ExecutableName : X64ExecutableName);
-            if (File.Exists(preferred))
+            if (OperatingSystem.IsWindows())
             {
-                return preferred;
+                var isArm64 = RuntimeInformation.OSArchitecture == Architecture.Arm64;
+                var preferred = Path.Combine(baseDirectory,
+                    isArm64 ? WindowsArm64ExecutableName : WindowsX64ExecutableName);
+                if (File.Exists(preferred))
+                {
+                    return preferred;
+                }
+
+                var alternate = Path.Combine(baseDirectory,
+                    isArm64 ? WindowsX64ExecutableName : WindowsArm64ExecutableName);
+                return File.Exists(alternate) ? alternate : FindOnPath("7z.exe", "7za.exe", "7zz.exe");
             }
 
-            var alternate = Path.Combine(baseDirectory, isArm64 ? X64ExecutableName : Arm64ExecutableName);
-            return File.Exists(alternate) ? alternate : null;
+            foreach (var name in new[] { "7zz", "7z", "7za" })
+            {
+                var bundled = Path.Combine(baseDirectory, name);
+                if (File.Exists(bundled))
+                {
+                    return bundled;
+                }
+            }
+
+            return FindOnPath("7zz", "7z", "7za");
         }
         catch (Exception ex)
         {
-            LoggerService.LogDebug("SevenZipProcess", $"Could not resolve 7za executable: {ex.Message}");
+            LoggerService.LogDebug("SevenZipProcess", $"Could not resolve 7-Zip executable: {ex.Message}");
             return null;
         }
     }
 
-    /// <summary>
-    /// Gets a value indicating whether a 7za fallback executable is available.
-    /// </summary>
+    private static string? FindOnPath(params string[] executableNames)
+    {
+        var path = Environment.GetEnvironmentVariable("PATH");
+        if (string.IsNullOrEmpty(path))
+        {
+            return null;
+        }
+
+        foreach (var directory in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            foreach (var name in executableNames)
+            {
+                try
+                {
+                    var candidate = Path.Combine(directory, name);
+                    if (File.Exists(candidate))
+                    {
+                        return candidate;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LoggerService.LogDebug("SevenZipProcess",
+                        $"Could not inspect PATH entry '{directory}': {ex.Message}");
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Gets a value indicating whether a 7-Zip fallback executable is available.</summary>
     public static bool IsAvailable => GetExecutablePath() != null;
 
     /// <summary>

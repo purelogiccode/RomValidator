@@ -26,8 +26,12 @@ concurrency:
 
 jobs:
   build-test:
-    name: Build & Test
-    runs-on: windows-latest
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
       - name: Checkout
@@ -58,7 +62,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ matrix.os }}
           path: TestResults/**/*.trx
           if-no-files-found: ignore
 
@@ -66,6 +70,44 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: code-coverage
+          name: code-coverage-${{ matrix.os }}
           path: TestResults/**/coverage.cobertura.xml
           if-no-files-found: ignore
+
+  inspectcode:
+    name: JetBrains InspectCode
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install JetBrains command-line tools
+        run: dotnet tool install --global JetBrains.ReSharper.GlobalTools
+
+      - name: Restore
+        run: dotnet restore CSharp_RomValidator.sln
+
+      - name: Run inspectcode
+        shell: pwsh
+        run: |
+          jb inspectcode CSharp_RomValidator.sln `
+            --output "$env:TEMP/inspectcode.sarif" `
+            --format=Sarif `
+            --severity=WARNING `
+            --verbosity=WARN
+          if ($LASTEXITCODE -ne 0) { throw "jb inspectcode failed with exit code $LASTEXITCODE." }
+
+          $results = (Get-Content "$env:TEMP/inspectcode.sarif" -Raw | ConvertFrom-Json).runs[0].results
+          if ($results.Count -gt 0) {
+            $results | ForEach-Object {
+              "{0}: {1} ({2})" -f $_.ruleId, $_.message.text,
+                $_.locations[0].physicalLocation.artifactLocation.uri
+            }
+            throw "jb inspectcode reported $($results.Count) issue(s)."
+          }

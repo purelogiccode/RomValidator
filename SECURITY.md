@@ -6,7 +6,7 @@ Security fixes are provided for the latest released version.
 
 | Version | Supported |
 |:--------|:----------|
-| 2.9.x (latest release) | :white_check_mark: |
+| 3.0.x (latest release) | :white_check_mark: |
 | Older versions | :x: |
 
 ## Reporting a Vulnerability
@@ -23,7 +23,7 @@ You can also open the repository's **Security** tab and choose
 
 Please include:
 
-- the affected version and Windows architecture (x64 or ARM64),
+- the affected version, operating system and architecture (x64 or arm64),
 - a description of the issue and its security impact,
 - step-by-step reproduction instructions or a proof of concept,
 - any relevant logs from `%LOCALAPPDATA%\ROM Validator\Logs`, and
@@ -35,11 +35,11 @@ Do not include secrets, personal data, or ROM files you are not allowed to share
 
 In scope:
 
-- the ROM Validator desktop application and its installer/release packages,
+- the ROM Validator desktop application and its Windows, Linux and macOS release packages,
 - DAT, XML, ZIP, 7z and RAR parsing and archive extraction,
 - hash calculation and file handling,
 - the update checker and the bug-reporting pipeline,
-- the bundled 7-Zip executables and release artifacts.
+- the bundled Windows 7-Zip executables and all release artifacts.
 
 Out of scope:
 

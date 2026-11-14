@@ -2,23 +2,25 @@
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net11.0-windows</TargetFramework>
-        <UseWPF>true</UseWPF>
+        <TargetFramework>net11.0</TargetFramework>
         <LangVersion>15</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
         <ApplicationIcon>icon\icon.ico</ApplicationIcon>
-        <Version>2.9.2</Version>
-        <AssemblyVersion>2.9.2</AssemblyVersion>
-        <FileVersion>2.9.2</FileVersion>
+        <Version>3.0.0</Version>
+        <AssemblyVersion>3.0.0</AssemblyVersion>
+        <FileVersion>3.0.0</FileVersion>
         <DebugType>embedded</DebugType>
         <DebugSymbols>true</DebugSymbols>
         <IsPackable>false</IsPackable>
         <NeutralLanguage>en</NeutralLanguage>
-        <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+        <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\RomValidator.xml</DocumentationFile>
         <Company>PureLogicCode.com</Company>
+        <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+        <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
     </PropertyGroup>
 
     <ItemGroup>
@@ -28,17 +30,26 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="images\logo.png" />
-        <Resource Include="images\logo.png" />
-        <None Update="7za.exe">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <AvaloniaResource Include="images\logo.png" />
+        <AvaloniaResource Include="icon\icon.png" />
+        <None Update="7za.exe" Condition="'$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == 'win-arm64'">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
-        <None Update="7za_arm64.exe">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <None Update="7za_arm64.exe" Condition="'$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == 'win-arm64'">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Avalonia" Version="12.1.6" />
+        <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.6" />
+        <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
+        <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
+            <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+            <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+        </PackageReference>
         <PackageReference Include="Meziantou.Analyzer" Version="3.0.339">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -51,29 +62,11 @@
         <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
         <PackageReference Include="SharpCompress" Version="0.50.9" />
-        <PackageReference Include="WPF-UI" Version="4.3.0" />
     </ItemGroup>
 
     <ItemGroup>
         <None Remove="References\**" />
-    </ItemGroup>
-
-    <ItemGroup>
         <Compile Remove="References\**" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <Page Remove="References\**" />
-        <Page Update="Pages\GenerateDatPage.xaml">
-            <Generator>MSBuild:Compile</Generator>
-            <XamlRuntime>Wpf</XamlRuntime>
-            <SubType>Designer</SubType>
-        </Page>
-        <Page Update="Pages\ValidatePage.xaml">
-            <Generator>MSBuild:Compile</Generator>
-            <XamlRuntime>Wpf</XamlRuntime>
-            <SubType>Designer</SubType>
-        </Page>
     </ItemGroup>
 
 </Project>

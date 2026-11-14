@@ -28,7 +28,7 @@ button in the Validate ROMs tab.
 | Format | Read | Create / repack |
 |:-------|:-----|:----------------|
 | `.zip` | Yes | Yes (SharpCompress) |
-| `.7z` | Yes | Yes (SharpCompress, fallback 7za) |
+| `.7z` | Yes | Yes (SharpCompress, 7-Zip fallback) |
 | `.rar` | Yes | Converted to zip when repacking |
 
 See [Archive Support](archive-support) for details.
@@ -47,9 +47,12 @@ The generated DAT file contains all four hashes.
 
 ## File system requirements
 
-- Windows file system (NTFS or ReFS recommended).
+- Local file system on Windows, Linux or macOS. NTFS/ReFS, common Linux file systems and
+  APFS/HFS+ are supported.
 - Read access to the ROM folder; write access when moving, renaming, deleting or repacking.
 - Temporary disk space for archive repacking.
+- Cloud-only placeholder files (for example OneDrive "online-only" files) must be downloaded
+  before validation.
 
 ## Related pages
 

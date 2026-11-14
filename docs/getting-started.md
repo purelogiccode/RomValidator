@@ -12,29 +12,33 @@ This page walks you through installing ROM Validator and completing your first v
 
 | Component | Requirement |
 |:----------|:------------|
-| Operating system | Windows 10 or Windows 11 |
+| Operating system | Windows 10/11, Linux, or macOS 11 or later |
 | Architecture | x64 or ARM64 |
-| Runtime | .NET 10 Desktop Runtime (the release zip is framework-dependent) |
+| Runtime | None - the release bundles are self-contained |
 
-> The application refuses to run from a temporary folder or directly from a zip archive.
-> Always extract the release zip to a permanent folder before launching it.
+> On Windows, the application refuses to run from a temporary folder or directly from a zip
+> archive. Always extract the release bundle to a permanent folder before launching it.
 
 ## Install
 
 1. Open the [latest release](https://github.com/purelogiccode/RomValidator/releases/latest).
-2. Download the zip that matches your system:
-   - `release_<version>_win-x64.zip` for Intel/AMD machines
-   - `release_<version>_win-arm64.zip` for Windows on ARM devices
-3. Extract the zip to a permanent folder, for example `C:\Program Files\ROM Validator` or
-   `D:\Tools\RomValidator`.
-4. Run `RomValidator.exe`.
+2. Download the bundle that matches your platform and architecture:
+   - `release_<version>_win-x64.zip` or `release_<version>_win-arm64.zip` for Windows
+   - `release_<version>_linux-x64.tar.gz` or `release_<version>_linux-arm64.tar.gz` for Linux
+   - `release_<version>_osx-x64.dmg` or `release_<version>_osx-arm64.dmg` for macOS
+3. Install it:
+   - **Windows** - extract the zip to a permanent folder, for example
+     `C:\Program Files\ROM Validator` or `D:\Tools\RomValidator`, and run `RomValidator.exe`.
+   - **Linux** - extract the archive to a permanent folder, make the executable startable if
+     needed (`chmod +x RomValidator`), and run `./RomValidator`.
+   - **macOS** - open the `.dmg` and drag `ROM Validator.app` to your Applications folder, then
+     launch it. The app is ad-hoc signed, so macOS may ask you to confirm the first launch.
 
-Each zip contains a single-file `RomValidator.exe` (framework-dependent), the bundled 7-Zip
-fallback executables (`7za.exe` / `7za_arm64.exe`), and `LICENSE.txt`, `ReadMe.md` and
-`WhatsNew.md`.
-
-If the .NET Desktop Runtime is missing, Windows prompts you with a download link. Install it and
-start the application again.
+Every bundle is self-contained, so no separate .NET runtime has to be installed. Windows bundles
+also include the 7-Zip fallback executables (`7za.exe` / `7za_arm64.exe`), and every bundle
+contains `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`. On Linux and macOS the archive fallback
+uses a system-installed `7zz`, `7z` or `7za` when one is available; otherwise SharpCompress is used
+on its own.
 
 ## First run
 
@@ -82,13 +86,13 @@ See [Generating DAT Files](generating-dat-files) for details.
 
 ## Where your data lives
 
-| Data | Location |
-|:-----|:---------|
-| Logs | `%LOCALAPPDATA%\ROM Validator\Logs` |
-| Fallback screenshots | `%LOCALAPPDATA%\ROM Validator\Screenshot` |
-| Screenshots (primary) | `Screenshot\` next to `RomValidator.exe` |
+| Data | Windows | macOS | Linux |
+|:-----|:--------|:------|:------|
+| Logs | `%LOCALAPPDATA%\ROM Validator\Logs` | `~/Library/Application Support/ROM Validator/Logs` | `~/.local/share/ROM Validator/Logs` (XDG data directory when set) |
+| Fallback screenshots | `%LOCALAPPDATA%\ROM Validator\Screenshot` | `~/Library/Application Support/ROM Validator/Screenshot` | `~/.local/share/ROM Validator/Screenshot` |
+| Screenshots (primary) | `Screenshot` next to `RomValidator.exe` | `Screenshot` next to the app | `Screenshot` next to `RomValidator` |
 
-Click **App Data** in the header to open the per-user folder in File Explorer. See
+Click **App Data** in the header to open the per-user folder in your file manager. See
 [Screenshots and Application Data](screenshots-and-data).
 
 ## Next steps

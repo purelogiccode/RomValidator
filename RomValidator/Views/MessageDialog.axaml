@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RomValidator.Views.MessageDialog"
+        Icon="avares://RomValidator/icon/icon.png"
+        Width="520"
+        SizeToContent="Height"
+        CanResize="False"
+        CanMinimize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource WindowBackgroundBrush}">
+    <Border Background="{StaticResource SurfaceBrush}"
+            BorderBrush="{StaticResource BorderGrayBrush}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="22"
+            Margin="10">
+        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*">
+            <Border Grid.Row="0" Grid.Column="0"
+                    Width="38" Height="38"
+                    CornerRadius="19"
+                    Background="{StaticResource SurfaceRaisedBrush}"
+                    Margin="0,0,14,0"
+                    VerticalAlignment="Top">
+                <TextBlock x:Name="IconText"
+                           FontSize="19"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+            </Border>
+
+            <StackPanel Grid.Row="0" Grid.Column="1" Spacing="8">
+                <TextBlock x:Name="TitleText"
+                           Classes="subtitle"
+                           TextWrapping="Wrap" />
+                <TextBlock x:Name="MessageText"
+                           TextWrapping="Wrap"
+                           Foreground="{StaticResource SecondaryTextBrush}"
+                           LineHeight="20" />
+            </StackPanel>
+
+            <StackPanel x:Name="ButtonsPanel"
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Grid.ColumnSpan="2"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="8"
+                        Margin="0,22,0,0" />
+        </Grid>
+    </Border>
+</Window>

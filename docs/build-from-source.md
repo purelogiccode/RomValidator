@@ -11,12 +11,13 @@ description: "Prerequisites, build, test and publish commands for ROM Validator.
 
 | Requirement | Notes |
 |:------------|:------|
-| Windows 10/11 | The application is WPF and builds on Windows |
-| .NET 10 SDK | Pinned by [`global.json`](https://github.com/purelogiccode/RomValidator/blob/master/global.json) |
+| Windows, Linux or macOS | The application is built with Avalonia and builds on all three platforms |
+| .NET 11 SDK | Pinned by [`global.json`](https://github.com/purelogiccode/RomValidator/blob/master/global.json) |
 | Git | To clone the repository |
+| JetBrains ReSharper command-line tools | Required for the `jb inspectcode` check that CI enforces |
 
 The repository contains the standalone 7-Zip 26.03 fallback executables (`7za.exe`,
-`7za_arm64.exe`), so no extra download is required for a build.
+`7za_arm64.exe`), so no extra download is required to build the Windows bundles.
 
 ## Clone and build
 
@@ -34,7 +35,7 @@ dotnet test CSharp_RomValidator.sln --configuration Release --nologo
 
 The test project (`RomValidator.Tests`) uses xUnit and coverlet. Tests cover models, services,
 hash calculation, archive handling, HTTP-based services (with a fake handler) and file-system
-helpers.
+helpers. The suite runs on Windows, Linux and macOS.
 
 ## Run the application
 
@@ -44,42 +45,50 @@ dotnet run --project RomValidator/RomValidator.csproj
 
 ## Publish
 
-The release workflow publishes framework-dependent builds for both supported architectures:
+The release workflow publishes self-contained builds for every supported runtime identifier:
 
 ```powershell
 dotnet publish RomValidator/RomValidator.csproj `
   --configuration Release `
   --runtime win-x64 `
+  --self-contained true `
   --output publish/win-x64 `
-  --no-self-contained
-
-dotnet publish RomValidator/RomValidator.csproj `
-  --configuration Release `
-  --runtime win-arm64 `
-  --output publish/win-arm64 `
-  --no-self-contained
+  -p:PublishSingleFile=false
 ```
 
-To produce a self-contained build instead (no .NET runtime required on the target machine), add
-`--self-contained true` and optionally `-p:PublishSingleFile=false`.
+Use the same command with another runtime identifier to target Linux or macOS, for example
+`linux-x64`, `linux-arm64`, `osx-x64` or `osx-arm64`. The release workflow packages the publish
+folders as follows:
+
+| Runtime identifier | Release bundle |
+|:-------------------|:---------------|
+| `win-x64`, `win-arm64` | `release_<version>_<rid>.zip` |
+| `linux-x64`, `linux-arm64` | `release_<version>_<rid>.tar.gz` |
+| `osx-x64`, `osx-arm64` | `release_<version>_<rid>.dmg` (contains `ROM Validator.app`) |
+
+Self-contained bundles do not require the .NET runtime on the target machine. To produce a
+framework-dependent build instead, use `--self-contained false`.
 
 The publish output includes:
 
-- `RomValidator.exe` and the WPF dependencies,
-- `SharpCompress.dll`,
-- `7za.exe` and `7za_arm64.exe`,
+- `RomValidator.exe` (Windows) or `RomValidator` (Linux/macOS) and the .NET runtime,
+- `Avalonia` and `SharpCompress` assemblies,
+- `7za.exe` and `7za_arm64.exe` (Windows bundles),
 - `RomValidator.xml` (XML documentation).
 
 ## Project layout
 
 ```
 CSharp_RomValidator.sln
-├── RomValidator/               WPF application
+├── RomValidator/               Avalonia application
+│   ├── App.axaml               Fluent theme and custom dark palette
+│   ├── Program.cs              Avalonia entry point
+│   ├── MainWindow.axaml        shell with header, page host and status bar
+│   ├── Pages/                  Validate ROMs and Generate DAT views (.axaml)
+│   ├── Views/                  themed message dialog
 │   ├── Interfaces/             service abstractions
 │   ├── Models/                 data models (No-Intro XML, bug report, GitHub release)
-│   ├── Pages/                  Validate ROMs and Generate DAT pages
 │   ├── Services/               hashing, archives, logging, reporting, paths
-│   ├── MainWindow.xaml         shell with header, frame and status bar
 │   └── RomValidator.csproj
 ├── RomValidator.Tests/         xUnit test project
 └── docs/                       this documentation site
@@ -89,7 +98,9 @@ CSharp_RomValidator.sln
 
 The build runs the Meziantou and Roslynator analyzers and fails on warnings. Keep the build at
 zero warnings and add tests for behavior changes. XML documentation is required for public
-members (`GenerateDocumentationFile` is enabled).
+members (`GenerateDocumentationFile` is enabled). Before committing, run `jb inspectcode` over the
+solution; CI fails when it reports any finding. See [Contributing](contributing) for the full
+checklist.
 
 ## Related pages
 

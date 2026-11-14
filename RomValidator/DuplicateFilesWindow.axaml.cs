@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Windows;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using RomValidator.Models;
 using RomValidator.Services;
 
@@ -9,16 +10,15 @@ namespace RomValidator;
 /// Window that lists groups of duplicate files (same hash, different filenames)
 /// detected during DAT generation.
 /// </summary>
-public partial class DuplicateFilesWindow
+public partial class DuplicateFilesWindow : Window
 {
-    /// <summary>
-    /// Initializes a new instance of the DuplicateFilesWindow class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the DuplicateFilesWindow class.</summary>
     public DuplicateFilesWindow()
     {
         try
         {
             InitializeComponent();
+            WindowThemeService.ApplyDarkTitleBar(this);
         }
         catch (Exception ex)
         {
@@ -27,10 +27,8 @@ public partial class DuplicateFilesWindow
         }
     }
 
-    /// <summary>
-    /// Sets the duplicate file data to display in the window.
-    /// </summary>
-    /// <param name="hashToFilenames">Dictionary mapping hash values to lists of duplicate filenames.</param>
+    /// <summary>Sets the duplicate file data to display in the window.</summary>
+    /// <param name="hashToFilenames">Dictionary mapping hash values to duplicate filenames.</param>
     /// <param name="customTitle">Optional custom title for the window.</param>
     public void SetDuplicateData(Dictionary<string, List<string>> hashToFilenames, string? customTitle = null)
     {
@@ -63,10 +61,7 @@ public partial class DuplicateFilesWindow
         }
     }
 
-    /// <summary>
-    /// Handles the Close button: closes the duplicate files window.
-    /// </summary>
-    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    private void CloseButton_Click(object? sender, RoutedEventArgs e)
     {
         try
         {

@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="RomValidator.Pages.GenerateDatPage">
+    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+        <TextBlock Grid.Row="0"
+                   Text="Generate DAT File"
+                   Classes="title"
+                   Margin="0,0,0,16" />
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+            <TextBox x:Name="FolderTextBox"
+                     Grid.Column="0"
+                     IsReadOnly="True"
+                     PlaceholderText="Select the folder whose files will be hashed" />
+            <Button x:Name="SelectFolderButton"
+                    Grid.Column="1"
+                    Content="Select Folder"
+                    Classes="primary"
+                    Margin="10,0,0,0" />
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" Margin="0,0,0,14">
+            <StackPanel Grid.Column="0" Margin="0,0,8,0" Spacing="5">
+                <TextBlock Text="Name:" Classes="label" />
+                <TextBox x:Name="NameTextBox" PlaceholderText="DAT header name" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="4,0,4,0" Spacing="5">
+                <TextBlock Text="Description:" Classes="label" />
+                <TextBox x:Name="DescriptionTextBox" PlaceholderText="DAT header description" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Margin="8,0,0,0" Spacing="5">
+                <TextBlock Text="Author:" Classes="label" />
+                <TextBox x:Name="AuthorTextBox" PlaceholderText="DAT header author" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="3" Classes="card" Margin="0,0,0,14">
+            <DataGrid x:Name="HashListView"
+                      AutoGenerateColumns="False"
+                      BorderThickness="0"
+                      GridLinesVisibility="Horizontal"
+                      IsReadOnly="True"
+                      CanUserReorderColumns="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Filename" Binding="{Binding FileName}" Width="260" />
+                    <DataGridTextColumn Header="Size" Binding="{Binding FileSize, StringFormat={}{0:N0}}" Width="100" />
+                    <DataGridTextColumn Header="CRC32" Binding="{Binding Crc32}" Width="90" />
+                    <DataGridTextColumn Header="MD5" Binding="{Binding Md5}" Width="250" />
+                    <DataGridTextColumn Header="SHA1" Binding="{Binding Sha1}" Width="300" />
+                    <DataGridTextColumn Header="SHA256" Binding="{Binding Sha256}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+            <Border Grid.Column="0"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderGrayBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="4">
+                <Grid>
+                    <ProgressBar x:Name="HashProgressBar" />
+                    <TextBlock x:Name="ProgressText"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontWeight="SemiBold"
+                               FontSize="11" />
+                </Grid>
+            </Border>
+            <TextBlock Grid.Column="1"
+                       x:Name="FileCountText"
+                       Text="No files processed"
+                       Classes="muted"
+                       Margin="12,0,0,0"
+                       VerticalAlignment="Center" />
+        </Grid>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Left" Spacing="8">
+            <Button x:Name="StartButton"
+                    Content="Start Hashing"
+                    Classes="start"
+                    IsEnabled="False" />
+            <Button x:Name="StopButton"
+                    Content="Stop"
+                    Classes="danger"
+                    IsEnabled="False" />
+            <Button x:Name="ResetButton"
+                    Content="Reset"
+                    Classes="neutral" />
+            <Button x:Name="ExportDatButton"
+                    Content="Export DAT"
+                    Classes="primary"
+                    IsEnabled="False" />
+        </StackPanel>
+    </Grid>
+</UserControl>

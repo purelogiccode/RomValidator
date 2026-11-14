@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RomValidator.AboutWindow"
+        Icon="avares://RomValidator/icon/icon.png"
+        Title="About ROM Validator"
+        Width="600"
+        Height="520"
+        CanResize="False"
+        CanMinimize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource WindowBackgroundBrush}">
+    <Border Background="{StaticResource SurfaceBrush}"
+            BorderBrush="{StaticResource BorderGrayBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Margin="16"
+            Padding="28">
+        <Grid RowDefinitions="Auto,*,Auto">
+            <StackPanel Grid.Row="0" HorizontalAlignment="Center" Spacing="12" Margin="0,4,0,18">
+                <Image Source="avares://RomValidator/images/logo.png" Width="112" Height="112" />
+                <TextBlock Text="ROM Validator" Classes="title" HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Spacing="8">
+                <TextBlock TextWrapping="Wrap"
+                           Foreground="{StaticResource SecondaryTextBrush}"
+                           Text="A utility for validating ROM files against DAT files and generating new No-Intro compliant DAT files from your collection." />
+                <TextBlock x:Name="AppVersionTextBlock"
+                           Classes="muted"
+                           Margin="0,8,0,0" />
+                <TextBlock TextWrapping="Wrap"
+                           Foreground="{StaticResource SecondaryTextBrush}"
+                           Text="This tool helps ensure your ROM collection is complete, accurate, and properly cataloged." />
+
+                <TextBlock Text="Links" Classes="section" Margin="0,14,0,2" />
+                <Button Classes="link" Click="Website_Click">
+                    <TextBlock Text="https://www.purelogiccode.com"
+                               Foreground="{StaticResource InfoTextBrush}" />
+                </Button>
+                <Button Classes="link" Click="GitHub_Click">
+                    <TextBlock Text="https://github.com/purelogiccode/RomValidator"
+                               Foreground="{StaticResource InfoTextBrush}" />
+                </Button>
+            </StackPanel>
+
+            <Button Grid.Row="2"
+                    Content="Close"
+                    Classes="primary"
+                    Width="110"
+                    HorizontalAlignment="Center"
+                    Margin="0,22,0,0"
+                    Click="CloseButton_Click" />
+        </Grid>
+    </Border>
+</Window>

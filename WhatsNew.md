@@ -1,11 +1,34 @@
+Release 3.0.0
+2026-11-13
+
+- User interface ported to Avalonia 12.1.6 with the Fluent theme and a custom
+  professional dark palette
+- ROM Validator now runs on Windows, Linux and macOS (x64 and arm64) and targets
+  .NET 11 (net11.0)
+- Release bundles are self-contained and no longer require a separate .NET
+  runtime:
+  - release_<version>_win-x64.zip and release_<version>_win-arm64.zip
+  - release_<version>_linux-x64.tar.gz and release_<version>_linux-arm64.tar.gz
+  - release_<version>_osx-x64.dmg and release_<version>_osx-arm64.dmg
+    (each dmg contains ROM Validator.app)
+- Windows bundles keep the bundled 7-Zip fallback (7za.exe / 7za_arm64.exe);
+  Linux and macOS use SharpCompress and fall back to a system-installed 7zz, 7z
+  or 7za when present
+- Native file and folder pickers and a themed in-app message dialog replace the
+  previous platform dialogs
+- Logs and fallback screenshots use platform-specific per-user data folders
+  (%LOCALAPPDATA% on Windows, ~/Library/Application Support on macOS, the XDG
+  data directory on Linux)
+- CI builds and tests on Windows, Linux and macOS and runs jb inspectcode with
+  zero findings
+
 Release 2.9.2
 2026-10-07
 
 - Added a Donate button to the header (next to About) that opens the donation
   page at https://www.purelogiccode.com/donate in the default browser
-- Version bumped to 2.9.2; the bundles remain single-file, framework-dependent
-  executables named release_<version>_win-x64.zip and
-  release_<version>_win-arm64.zip
+- Version bumped to 2.9.2; the Windows bundles remain single-file executables
+  named release_<version>_win-x64.zip and release_<version>_win-arm64.zip
 
 Release 2.9.1
 2026-10-07
@@ -15,7 +38,7 @@ Release 2.9.1
 - The release workflow now checks out the full repository history before publishing,
   so GitHub can generate the release notes automatically
 - Version bumped to 2.9.1; application behavior is unchanged from 2.9.0 and the
-  bundles remain single-file, framework-dependent executables named
+  Windows bundles remain single-file executables named
   release_<version>_win-x64.zip and release_<version>_win-arm64.zip
 
 Release 2.9.0

@@ -1,18 +1,17 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Windows;
-using System.Windows.Threading;
 using System.Xml;
 using System.Xml.Serialization;
-using Microsoft.Win32;
+using Avalonia.Controls;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using RomValidator.Models;
 using RomValidator.Models.NoIntro;
 using RomValidator.Services;
+using RomValidator.Views;
 
 namespace RomValidator.Pages;
 
@@ -20,7 +19,7 @@ namespace RomValidator.Pages;
 /// Page that hashes all files in a folder and exports the results as a
 /// No-Intro compliant DAT file, reporting duplicate ROMs along the way.
 /// </summary>
-public partial class GenerateDatPage : IDisposable
+public partial class GenerateDatPage : UserControl, IDisposable
 {
     // Maximum time a regex match is allowed to run before timing out
     private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(2);
@@ -46,6 +45,13 @@ public partial class GenerateDatPage : IDisposable
     private int _discoveredFilesCount;
     private int _archiveExpansionCount;
 
+    /// <summary>Initializes a new instance for the XAML designer.</summary>
+    public GenerateDatPage()
+    {
+        _mainWindow = null!;
+        InitializeComponent();
+    }
+
     /// <summary>
     /// Initializes a new instance of the GenerateDatPage class.
     /// </summary>
@@ -56,6 +62,13 @@ public partial class GenerateDatPage : IDisposable
         {
             _mainWindow = mainWindow;
             InitializeComponent();
+
+            SelectFolderButton.Click += async (_, _) => await SelectFolderAsync();
+            StartButton.Click += async (_, _) => await StartHashingAsync();
+            StopButton.Click += (_, _) => StopHashing();
+            ResetButton.Click += (_, _) => ResetFromUi();
+            ExportDatButton.Click += async (_, _) => await ExportDatAsync();
+
             HashListView.ItemsSource = _fileDataCollection;
             UpdateFileCountText(0);
 
@@ -75,27 +88,41 @@ public partial class GenerateDatPage : IDisposable
         }
     }
 
-    private void SelectFolderButton_Click(object sender, RoutedEventArgs e)
+    private async Task SelectFolderAsync()
     {
         try
         {
-            var folderDialog = new OpenFolderDialog { Title = "Select folder to hash", Multiselect = false };
-            if (folderDialog.ShowDialog() != true || string.IsNullOrEmpty(folderDialog.FolderName)) return;
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel is null)
+            {
+                return;
+            }
+
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Select folder to hash",
+                AllowMultiple = false
+            });
+
+            var folderPath = folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+            if (string.IsNullOrEmpty(folderPath))
+            {
+                return;
+            }
 
             ResetPage();
-            FolderTextBox.Text = folderDialog.FolderName;
-            NameTextBox.Text = new DirectoryInfo(folderDialog.FolderName).Name;
+            FolderTextBox.Text = folderPath;
+            NameTextBox.Text = new DirectoryInfo(folderPath).Name;
             StartButton.IsEnabled = true;
-            _mainWindow.UpdateStatusBarMessage($"Folder selected: {folderDialog.FolderName}");
+            _mainWindow.UpdateStatusBarMessage($"Folder selected: {folderPath}");
         }
         catch (Exception ex)
         {
-            // LogException already forwards the report to the bug report API via the Serilog sink.
             LoggerService.LogException("GenerateDatPage", ex, "Error selecting folder");
         }
     }
 
-    private async void StartButton_ClickAsync(object sender, RoutedEventArgs e)
+    private async Task StartHashingAsync()
     {
         CancellationTokenSource? operationCts = null; // Capture variable for this operation
 
@@ -103,8 +130,8 @@ public partial class GenerateDatPage : IDisposable
         {
             if (string.IsNullOrEmpty(FolderTextBox.Text) || !Directory.Exists(FolderTextBox.Text))
             {
-                MessageBox.Show(_mainWindow, "Please select a valid folder first.", "Invalid Folder",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                await DialogService.ShowAsync(_mainWindow, "Please select a valid folder first.",
+                    "Invalid Folder", DialogButtons.Ok, DialogIcon.Warning);
                 return;
             }
 
@@ -153,8 +180,9 @@ public partial class GenerateDatPage : IDisposable
 
             if (!operationCts.IsCancellationRequested)
             {
-                MessageBox.Show(_mainWindow, $"Hashing complete! {_processedFileCount} files processed.", "Complete",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                await DialogService.ShowAsync(_mainWindow,
+                    $"Hashing complete! {_processedFileCount} files processed.", "Complete",
+                    DialogButtons.Ok, DialogIcon.Info);
                 lock (_operationLock)
                 {
                     ExportDatButton.IsEnabled = _processedFilesList.Count > 0;
@@ -168,23 +196,22 @@ public partial class GenerateDatPage : IDisposable
                 {
                     if (_processedFilesList.Count > 0)
                     {
-                        // Use Dispatcher to ensure UI thread execution
-                        Dispatcher.InvokeAsync(() => ExportDatButton_ClickAsync(this, new RoutedEventArgs()));
+                        Dispatcher.UIThread.Post(() => _ = ExportDatAsync());
                     }
                 }
             }
             else
             {
-                MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                await DialogService.ShowAsync(_mainWindow, "Operation was cancelled", "Cancelled",
+                    DialogButtons.Ok, DialogIcon.Info);
                 ExportDatButton.IsEnabled = false;
                 await _mainWindow.UpdateStatusBarMessageAsync("Hashing cancelled.", operationCts.Token);
             }
         }
         catch (OperationCanceledException)
         {
-            MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            await DialogService.ShowAsync(_mainWindow, "Operation was cancelled", "Cancelled",
+                DialogButtons.Ok, DialogIcon.Info);
             ExportDatButton.IsEnabled = false;
             if (operationCts != null)
                 await _mainWindow.UpdateStatusBarMessageAsync("Hashing cancelled.", operationCts.Token);
@@ -193,8 +220,8 @@ public partial class GenerateDatPage : IDisposable
         {
             _ = _mainWindow.BugReportService.SendBugReportAsync(
                 $"Error during hashing operation for folder: {FolderTextBox.Text}", ex);
-            MessageBox.Show(_mainWindow, $"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            await DialogService.ShowAsync(_mainWindow, $"An error occurred: {ex.Message}", "Error",
+                DialogButtons.Ok, DialogIcon.Error);
             if (operationCts != null)
                 await _mainWindow.UpdateStatusBarMessageAsync("Error during hashing.", operationCts.Token);
         }
@@ -249,7 +276,7 @@ public partial class GenerateDatPage : IDisposable
         }
     }
 
-    private void StopButton_Click(object sender, RoutedEventArgs e)
+    private void StopHashing()
     {
         try
         {
@@ -326,7 +353,7 @@ public partial class GenerateDatPage : IDisposable
             {
                 lastUiUpdate = now;
                 var newMaximum = currentDiscovered + currentExpansion;
-                await Dispatcher.InvokeAsync(() => HashProgressBar.Maximum = newMaximum);
+                await Dispatcher.UIThread.InvokeAsync(() => HashProgressBar.Maximum = newMaximum);
             }
 
             foreach (var gameFile in gameFiles)
@@ -394,19 +421,16 @@ public partial class GenerateDatPage : IDisposable
         // Show duplicate warning after hashing completes
         if (duplicateGroups > 0)
         {
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 // Filter to only include hashes with multiple filenames
                 var duplicateHashToFilenames = hashToFilenames
                     .Where(static kvp => kvp.Value.Count > 1)
                     .ToDictionary(static kvp => kvp.Key, static kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
 
-                var duplicateWindow = new DuplicateFilesWindow
-                {
-                    Owner = _mainWindow
-                };
+                var duplicateWindow = new DuplicateFilesWindow();
                 duplicateWindow.SetDuplicateData(duplicateHashToFilenames, "Duplicate ROMs Detected");
-                duplicateWindow.ShowDialog();
+                await duplicateWindow.ShowDialog(_mainWindow);
             });
         }
     }
@@ -416,36 +440,50 @@ public partial class GenerateDatPage : IDisposable
         return InvalidFileNameCharsRegex.Replace(name, "_");
     }
 
-    private async void ExportDatButton_ClickAsync(object sender, RoutedEventArgs e)
+    private async Task ExportDatAsync()
     {
         try
         {
+            bool hasFiles;
             lock (_operationLock)
             {
-                if (_processedFilesList.Count == 0)
-                {
-                    MessageBox.Show(_mainWindow, "No files have been processed to export.", "No Data",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
+                hasFiles = _processedFilesList.Count > 0;
             }
 
-            var sanitizedName = SanitizeFileName(NameTextBox.Text);
+            if (!hasFiles)
+            {
+                await DialogService.ShowAsync(_mainWindow, "No files have been processed to export.",
+                    "No Data", DialogButtons.Ok, DialogIcon.Warning);
+                return;
+            }
+
+            var sanitizedName = SanitizeFileName(NameTextBox.Text ?? string.Empty);
             if (string.IsNullOrWhiteSpace(sanitizedName))
             {
                 sanitizedName = "Exported-DAT";
             }
 
-            var saveFileDialog = new SaveFileDialog
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel is null)
             {
-                Filter = "DAT File (*.dat)|*.dat|All Files (*.*)|*.*",
-                DefaultExt = "dat",
-                AddExtension = true,
-                FileName = $"{sanitizedName} ({DateTime.Now:yyyyMMdd-HHmmss}).dat",
-                Title = "Save DAT File"
-            };
+                return;
+            }
 
-            if (saveFileDialog.ShowDialog() != true) return;
+            var saveFile = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Save DAT File",
+                SuggestedFileName = $"{sanitizedName} ({DateTime.Now:yyyyMMdd-HHmmss}).dat",
+                DefaultExtension = "dat",
+                ShowOverwritePrompt = true,
+                FileTypeChoices =
+                [
+                    new FilePickerFileType("DAT file") { Patterns = ["*.dat"] },
+                    FilePickerFileTypes.All
+                ]
+            });
+
+            var savePath = saveFile?.TryGetLocalPath();
+            if (string.IsNullOrEmpty(savePath)) return;
 
             try
             {
@@ -453,9 +491,9 @@ public partial class GenerateDatPage : IDisposable
                 {
                     Header = new Header
                     {
-                        Name = NameTextBox.Text,
-                        Description = DescriptionTextBox.Text,
-                        Author = AuthorTextBox.Text,
+                        Name = NameTextBox.Text ?? string.Empty,
+                        Description = DescriptionTextBox.Text ?? string.Empty,
+                        Author = AuthorTextBox.Text ?? string.Empty,
                         Version = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)
                     }
                 };
@@ -499,8 +537,8 @@ public partial class GenerateDatPage : IDisposable
 
                     _mainWindow.UpdateStatusBarMessage(
                         $"Warning: {filenameCollisions.Count} filename collision(s) detected!");
-                    MessageBox.Show(_mainWindow, collisionMessage.ToString(), "Filename Collisions Detected",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    await DialogService.ShowAsync(_mainWindow, collisionMessage.ToString(),
+                        "Filename Collisions Detected", DialogButtons.Ok, DialogIcon.Warning);
                 }
 
                 // Note: Duplicate ROM notifications are already shown after hash calculation completes
@@ -530,7 +568,7 @@ public partial class GenerateDatPage : IDisposable
                     { Indent = true, IndentChars = "\t", Encoding = new UTF8Encoding(false), Async = true };
 
                 _mainWindow.UpdateStatusBarMessage("Serializing and saving DAT file...");
-                await using var writer = XmlWriter.Create(saveFileDialog.FileName, settings);
+                await using var writer = XmlWriter.Create(savePath, settings);
 
                 // Serialize with proper No-Intro namespaces
                 await Task.Run(() =>
@@ -540,43 +578,42 @@ public partial class GenerateDatPage : IDisposable
                     serializer.Serialize(writer, dataFile, namespaces);
                 }); // Offload sync serialization (Issue 12 fix)
 
-                var result = MessageBox.Show(_mainWindow, "DAT file exported successfully! Would you like to open it?",
-                    "Export Complete", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (result == MessageBoxResult.Yes)
+                var result = await DialogService.ShowAsync(_mainWindow,
+                    "DAT file exported successfully! Would you like to open it?",
+                    "Export Complete", DialogButtons.YesNo, DialogIcon.Question);
+                if (result == DialogResult.Yes)
                 {
                     try
                     {
                         Process.Start(new ProcessStartInfo
-                            { FileName = saveFileDialog.FileName, UseShellExecute = true });
+                            { FileName = savePath, UseShellExecute = true });
                     }
-                    catch (Win32Exception)
+                    catch (Exception openEx) when (openEx is System.ComponentModel.Win32Exception or InvalidOperationException)
                     {
-                        // The export itself succeeded, but Windows has no application
-                        // associated with .dat files (or the shell could not open the
-                        // file). This is an environment issue, not an application bug,
-                        // so show a friendly message instead of reporting an error.
+                        // The export itself succeeded, but the operating system has no
+                        // application associated with .dat files.
                         _mainWindow.UpdateStatusBarMessage(
                             "DAT exported, but no app is associated with .dat files.");
-                        MessageBox.Show(_mainWindow,
-                            "The DAT file was exported successfully, but Windows could not open it automatically.\n\n" +
+                        await DialogService.ShowAsync(_mainWindow,
+                            "The DAT file was exported successfully, but the operating system could not open it automatically.\n\n" +
                             "This usually means no application is associated with .dat files.\n\n" +
-                            $"The file was saved to:\n{saveFileDialog.FileName}",
-                            "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                            $"The file was saved to:\n{savePath}",
+                            "Export Complete", DialogButtons.Ok, DialogIcon.Info);
                     }
                 }
             }
             catch (Exception ex)
             {
                 _ = _mainWindow.BugReportService.SendBugReportAsync("Error exporting DAT file.", ex);
-                MessageBox.Show(_mainWindow, $"Error exporting file: {ex.Message}", "Export Error", MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                await DialogService.ShowAsync(_mainWindow, $"Error exporting file: {ex.Message}", "Export Error",
+                    DialogButtons.Ok, DialogIcon.Error);
             }
         }
         catch (Exception ex)
         {
             _ = _mainWindow.BugReportService.SendBugReportAsync("Error exporting DAT file.", ex);
-            MessageBox.Show(_mainWindow, $"Error exporting file: {ex.Message}", "Export Error", MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            await DialogService.ShowAsync(_mainWindow, $"Error exporting file: {ex.Message}", "Export Error",
+                DialogButtons.Ok, DialogIcon.Error);
         }
     }
 
@@ -585,7 +622,7 @@ public partial class GenerateDatPage : IDisposable
         FileCountText.Text = count == 0 ? "No files processed" : $"{count} files processed";
     }
 
-    private void ResetButton_Click(object sender, RoutedEventArgs e)
+    private void ResetFromUi()
     {
         try
         {

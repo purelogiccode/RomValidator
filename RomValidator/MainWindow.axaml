@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RomValidator.MainWindow"
+        Icon="avares://RomValidator/icon/icon.png"
+        Title="ROM Validator"
+        Width="1280"
+        Height="900"
+        MinWidth="980"
+        MinHeight="640"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Closing="Window_Closing">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Border Grid.Row="0" Classes="toolbar">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Image Source="avares://RomValidator/images/logo.png"
+                           Width="28" Height="28"
+                           Margin="2,0,10,0"
+                           VerticalAlignment="Center" />
+                    <TextBlock Text="ROM Validator"
+                               Classes="title"
+                               FontSize="18"
+                               Margin="0,0,18,0"
+                               VerticalAlignment="Center" />
+                    <Button x:Name="ValidateRomsButton"
+                            Content="Validate ROMs"
+                            Classes="menu active"
+                            Click="ValidateRoms_Click"
+                            ToolTip.Tip="Validate ROMs against a DAT file" />
+                    <Button x:Name="GenerateDatButton"
+                            Content="Generate DAT"
+                            Classes="menu"
+                            Click="GenerateDat_Click"
+                            ToolTip.Tip="Generate a DAT file from a folder of ROMs" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Button Content="App Data"
+                            Classes="menu"
+                            Click="OpenAppData_Click"
+                            ToolTip.Tip="Open the application data folder (logs and screenshots)" />
+                    <Button Content="Donate"
+                            Classes="menu"
+                            Click="Donate_Click"
+                            ToolTip.Tip="Support the developer" />
+                    <Button Content="About"
+                            Classes="menu"
+                            Click="About_Click"
+                            ToolTip.Tip="View application information" />
+                    <Button Content="Exit"
+                            Classes="menu"
+                            Click="Exit_Click"
+                            ToolTip.Tip="Close the application" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ContentControl x:Name="MainContent" Grid.Row="1" />
+
+        <Border Grid.Row="2" Classes="statusBar">
+            <TextBlock x:Name="StatusBarMessageTextBlock"
+                       Text="Ready."
+                       Classes="muted"
+                       FontSize="12"
+                       ToolTip.Tip="Current application status" />
+        </Border>
+    </Grid>
+</Window>

@@ -6,14 +6,14 @@
 [![Forks](https://img.shields.io/github/forks/purelogiccode/RomValidator)](https://github.com/purelogiccode/RomValidator/forks)
 [![Issues](https://img.shields.io/github/issues/purelogiccode/RomValidator)](https://github.com/purelogiccode/RomValidator/issues)
 [![Last commit](https://img.shields.io/github/last-commit/purelogiccode/RomValidator)](https://github.com/purelogiccode/RomValidator/commits/master)
-[![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/10.0)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/RomValidator/releases)
+[![.NET 11](https://img.shields.io/badge/.NET-11.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/11.0)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/RomValidator/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/contributing.md)
 
 # ROM Validator
 
-A Windows desktop application for validating ROM files against DAT files and generating new No-Intro compliant DAT files from your collection.
+A cross-platform desktop application for validating ROM files against DAT files and generating new No-Intro compliant DAT files from your collection. Runs on Windows, Linux and macOS.
 
 > **Documentation:** <https://purelogiccode.github.io/RomValidator/> &nbsp;|&nbsp; **Release notes:** see [docs/release-notes.md](docs/release-notes.md)
 
@@ -29,28 +29,33 @@ A Windows desktop application for validating ROM files against DAT files and gen
 - **DAT File Generation**: Generate new No-Intro compliant DAT files from your ROM collection
 - **Duplicate Detection**: Identify duplicate ROM files in your collection
 - **Multiple Hash Support**: CRC32, MD5, SHA-1, and SHA-256 hash verification
-- **Archive Support**: Read ROMs directly from `.zip`, `.7z`, and `.rar` archives (SharpCompress), with the bundled `7za.exe` / `7za_arm64.exe` as a fallback for archives SharpCompress cannot read or create
-- **Fluent Dark Theme**: Modern dark UI built on WPF-UI (Windows 11 style)
-- **Screenshot Capture**: Press **F8** to save a screenshot of the active window to the `Screenshot\` folder next to the executable (falling back to `%LOCALAPPDATA%\ROM Validator\Screenshot` when the application folder is read-only)
-- **App Data Button**: the **App Data** button in the top-right corner opens `%LOCALAPPDATA%\ROM Validator` in Explorer — logs (`Logs\`) and fallback screenshots (`Screenshot\`) live there, always writable even when installed under Program Files
+- **Cross-Platform**: Windows, Linux and macOS builds on x64 and ARM64, self-contained and ready to run without a separate .NET runtime
+- **Archive Support**: Read ROMs directly from `.zip`, `.7z`, and `.rar` archives (SharpCompress). The Windows bundles include `7za.exe` / `7za_arm64.exe` as a fallback; on Linux and macOS a system-installed `7zz`, `7z` or `7za` is used when available
+- **Modern Dark Theme**: Avalonia 12.1 with the Fluent theme and a custom professional dark palette
+- **Screenshot Capture**: Press **F8** to save a screenshot of the active window to the `Screenshot` folder next to the executable, falling back to the per-user data folder when the application folder is read-only
+- **App Data Button**: the **App Data** button in the top-right corner opens the per-user data folder — logs (`Logs/`) and fallback screenshots (`Screenshot/`) live there, always writable even when the application is installed in a protected location
 - **Donate Button**: the **Donate** button in the top-right corner (next to **About**) opens the [donation page](https://www.purelogiccode.com/donate) in your default browser
 - **Version Checking**: Automatic GitHub version checking at startup, with a prompt to open the release page when an update is available
 - **Robust Error Handling**: Retry-based temp-directory cleanup, binary-format detection for wrongly selected DAT files, and automatic bug reports (Serilog) — all Warning, Error, and Fatal events are forwarded to the bug report API
 
 ## Requirements
 
-- **Windows 10/11** (x64 or ARM64) — WPF application
-- **.NET 10 Desktop Runtime** — the release zip is framework-dependent
-- **7-Zip standalone executables** (`7za.exe` for x64, `7za_arm64.exe` for ARM64, 7-Zip 26.03) — included for the archive fallback
+- **Windows 10/11, Linux or macOS 11+** on x64 or ARM64
+- **No .NET runtime required** — the release bundles are self-contained
+- **7-Zip** — bundled with the Windows bundles (`7za.exe` for x64, `7za_arm64.exe` for ARM64, 7-Zip 26.03); on Linux and macOS an optional system `7zz`, `7z` or `7za` enables the archive fallback
 
 ## Installation
 
-1. Download the zip for your architecture from the [latest release](https://github.com/purelogiccode/RomValidator/releases/latest):
-   - `release_<version>_win-x64.zip`
-   - `release_<version>_win-arm64.zip`
-2. Extract it to a permanent folder and run `RomValidator.exe`. The application refuses to run directly from a zip archive or a temporary folder.
+1. Download the bundle for your platform and architecture from the [latest release](https://github.com/purelogiccode/RomValidator/releases/latest):
+   - **Windows:** `release_<version>_win-x64.zip` or `release_<version>_win-arm64.zip`
+   - **Linux:** `release_<version>_linux-x64.tar.gz` or `release_<version>_linux-arm64.tar.gz`
+   - **macOS:** `release_<version>_osx-x64.dmg` or `release_<version>_osx-arm64.dmg`
+2. Install it:
+   - **Windows:** extract the zip to a permanent folder and run `RomValidator.exe`. The application refuses to run directly from a zip archive or a temporary folder.
+   - **Linux:** extract the archive, make the executable startable if needed (`chmod +x RomValidator`), then run `./RomValidator`.
+   - **macOS:** open the `.dmg` and drag `ROM Validator.app` to your Applications folder, then launch it from there.
 
-Each zip contains a single-file `RomValidator.exe` (framework-dependent), the bundled 7-Zip fallback executables, and `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
+Every bundle is self-contained, so no separate runtime needs to be installed. Windows bundles also include the 7-Zip fallback executables, and every bundle contains `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
 
 Full instructions: [Getting Started](docs/getting-started.md).
 
@@ -92,13 +97,25 @@ The complete documentation lives in the [`docs/`](docs) folder and is published 
 - DAT files must be No-Intro XML; ZIP archives, binary images, and ClrMamePro/MAME formats are detected and rejected with a clear message.
 - If a file is temporarily locked (e.g. still being written), the app retries automatically and cleans up leftover temp folders in the background.
 
+## Data locations
+
+Logs (`Logs/`) and fallback screenshots (`Screenshot/`) live in a per-user data folder:
+
+| Platform | Folder |
+|:---------|:-------|
+| Windows | `%LOCALAPPDATA%\ROM Validator` |
+| macOS | `~/Library/Application Support/ROM Validator` |
+| Linux | `~/.local/share/ROM Validator` (the XDG data directory when set) |
+
+Primary screenshots are written to the `Screenshot` folder next to the executable when that folder is writable. See [Screenshots and Application Data](docs/screenshots-and-data.md).
+
 ## Dependencies
 
-- **WPF-UI** (4.3.0): Fluent design system and dark theme
+- **Avalonia** (12.1.6): cross-platform UI framework, Fluent theme, Inter font and DataGrid
 - **Serilog** (4.4.0) + Sinks (Debug, File): structured logging and automatic bug reports
-- **SharpCompress** (0.50.4): zip/7z/RAR archive reading and zip/7z archive creation
-- **7-Zip 26.03** (`7za.exe` / `7za_arm64.exe`): fallback for archive operations SharpCompress cannot perform
-- **xUnit** (2.9.3), **Microsoft.NET.Test.Sdk** (18.10.1), **coverlet.collector** (10.1.0): testing
+- **SharpCompress** (0.50.9): zip/7z/RAR archive reading and zip/7z archive creation
+- **7-Zip 26.03** (`7za.exe` / `7za_arm64.exe`): bundled fallback in the Windows bundles; a system `7zz`, `7z` or `7za` is used on Linux and macOS when present
+- **xUnit** (2.9.3), **Microsoft.NET.Test.Sdk** (18.12.0), **coverlet.collector** (10.1.0): testing
 
 ## Tests
 
@@ -108,12 +125,14 @@ The solution includes unit and integration tests (models, services, hash calcula
 dotnet test
 ```
 
+The suite runs on Windows, Linux and macOS; CI executes it on all three platforms.
+
 ## Continuous Integration
 
 | Workflow | Purpose |
 |:---------|:--------|
-| [CI](.github/workflows/ci.yml) | Builds and tests every push and pull request |
-| [Release](.github/workflows/release.yml) | Runs the test suite, then publishes the single-file win-x64/win-arm64 zips (with license, readme and what's new) and checksums on `release_*` / `v*` tags, with generated release notes |
+| [CI](.github/workflows/ci.yml) | Builds and tests on `windows-latest`, `ubuntu-latest` and `macos-latest`, and runs JetBrains InspectCode with zero findings |
+| [Release](.github/workflows/release.yml) | Runs the test suite, then publishes self-contained win-x64/win-arm64 zips, linux-x64/linux-arm64 tar.gz bundles and osx-x64/osx-arm64 dmgs (with license, readme and what's new) plus checksums on `release_*` / `v*` tags, with generated release notes |
 | [Docs](.github/workflows/docs.yml) | Publishes the documentation site and mirrors `docs/` to the wiki |
 
 See [CI/CD](docs/ci-cd.md) for details.
@@ -125,9 +144,9 @@ See [WhatsNew.md](WhatsNew.md) for the latest release highlights and [Release No
 ## Acknowledgments
 
 - No-Intro for the DAT file format specification
+- [Avalonia](https://avaloniaui.net/) for the cross-platform user interface
 - SharpCompress for archive support
 - 7-Zip for the standalone fallback executables
-- WPF-UI for the Fluent design system
 
 ## Contributing & Support
 

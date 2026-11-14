@@ -1,4 +1,3 @@
-using System.IO;
 using SharpCompress.Archives;
 using SharpCompress.Archives.Zip;
 using SharpCompress.Common;

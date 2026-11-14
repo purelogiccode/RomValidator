@@ -1,11 +1,11 @@
-using System.IO;
 
 namespace RomValidator.Services;
 
 /// <summary>
 /// Central location for the application's folders:
 /// the "Screenshot" folder next to the application executable (primary) and the
-/// per-user data folder (%LOCALAPPDATA%\ROM Validator) used for logs and as a
+/// per-user data folder (for example <c>%LOCALAPPDATA%\ROM Validator</c> on Windows or
+/// <c>~/Library/Application Support/ROM Validator</c> on macOS) used for logs and as a
 /// fallback for screenshots when the application folder is not writable.
 /// </summary>
 public static class AppPaths
@@ -13,10 +13,24 @@ public static class AppPaths
     /// <summary>Gets the name of the application folder used under AppData.</summary>
     public const string ApplicationName = "ROM Validator";
 
-    /// <summary>Gets the application data folder (e.g. %LOCALAPPDATA%\ROM Validator).</summary>
-    public static string AppDataDirectory { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        ApplicationName);
+    /// <summary>Gets the platform-specific per-user application data folder.</summary>
+    public static string AppDataDirectory { get; } = GetAppDataDirectory();
+
+    private static string GetAppDataDirectory()
+    {
+        if (OperatingSystem.IsMacOS())
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Library",
+                "Application Support",
+                ApplicationName);
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            ApplicationName);
+    }
 
     /// <summary>Gets the folder where the Serilog rolling log files are written.</summary>
     public static string LogsDirectory => Path.Combine(AppDataDirectory, "Logs");

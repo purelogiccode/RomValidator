@@ -2,7 +2,7 @@
 title: Archive Support
 parent: User Guide
 nav_order: 4
-description: "Read and repack .zip, .7z and .rar archives with SharpCompress and the 7za fallback."
+description: "Read and repack .zip, .7z and .rar archives with SharpCompress and the 7-Zip fallback."
 ---
 
 # Archive Support
@@ -23,28 +23,32 @@ file.
 ## How archives are processed
 
 1. The archive is opened with **SharpCompress** and every non-directory entry is hashed.
-2. If SharpCompress cannot read the archive, the bundled **7za** executable is used as a
-   fallback: the archive is extracted to a temporary folder and the extracted files are hashed.
+2. If SharpCompress cannot read the archive, the **7-Zip fallback** is used when available: the
+   archive is extracted to a temporary folder and the extracted files are hashed.
 3. When a file inside an archive must be renamed to match the DAT, the archive is extracted,
    the entry is renamed and the archive is repacked:
    - zip and 7z archives are repacked with SharpCompress,
-   - if SharpCompress cannot create the archive, the bundled 7za is used,
+   - if SharpCompress cannot create the archive, the 7-Zip fallback is used,
    - RAR archives are converted to zip.
 
 Large entries are streamed; the application does not load a whole ROM into memory.
 
-## Bundled 7-Zip executables
+## 7-Zip fallback executables
 
-The application ships with standalone 7-Zip 26.03 command-line tools:
+SharpCompress is the primary archive engine on every platform. A standalone 7-Zip command-line
+tool is used as a fallback for operations SharpCompress cannot handle:
 
-| File | Architecture |
-|:-----|:-------------|
-| `7za.exe` | x64 |
-| `7za_arm64.exe` | ARM64 |
+| Platform | Fallback |
+|:---------|:---------|
+| Windows | bundled `7za.exe` (x64) or `7za_arm64.exe` (ARM64), 7-Zip 26.03 |
+| Linux | system `7zz`, `7z` or `7za`, found next to the application or on the `PATH` |
+| macOS | system `7zz`, `7z` or `7za`, found next to the application or on the `PATH` |
 
-The correct executable is selected automatically based on the operating system architecture. If
-the executable is missing, archive creation falls back to SharpCompress only and the application
-continues to work for zip archives and for reading all supported formats.
+On Windows the correct bundled executable is selected automatically based on the operating system
+architecture. On Linux and macOS the fallback is optional: install 7-Zip with your package manager
+to enable it. If no fallback executable is present, archive creation falls back to SharpCompress
+only and the application continues to work for zip archives and for reading all supported formats.
+The missing fallback is logged at startup.
 
 ## Disk space
 

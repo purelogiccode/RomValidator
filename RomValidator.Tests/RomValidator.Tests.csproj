@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net11.0-windows</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
         <LangVersion>15</LangVersion>
         <Company>PureLogicCode.com</Company>
-        <AssemblyVersion>2.9.2</AssemblyVersion>
-        <FileVersion>2.9.2</FileVersion>
+        <AssemblyVersion>3.0.0</AssemblyVersion>
+        <FileVersion>3.0.0</FileVersion>
         <NeutralLanguage>en</NeutralLanguage>
     </PropertyGroup>
 

@@ -1,0 +1,377 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="RomValidator.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <FontFamily x:Key="AppFontFamily">avares://Avalonia.Fonts.Inter/Assets#Inter, Segoe UI, Noto Sans</FontFamily>
+
+            <!-- Surfaces -->
+            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#0E1116" />
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#161A21" />
+            <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="#1D222B" />
+            <SolidColorBrush x:Key="SurfaceLightBrush" Color="#222833" />
+            <SolidColorBrush x:Key="HoverBackgroundBrush" Color="#2A3140" />
+            <SolidColorBrush x:Key="BorderGrayBrush" Color="#2C3340" />
+            <SolidColorBrush x:Key="BorderHoverBrush" Color="#3D4657" />
+
+            <!-- Accent -->
+            <SolidColorBrush x:Key="AccentBlueBrush" Color="#3D7DFF" />
+            <SolidColorBrush x:Key="HoverBlueBrush" Color="#5A91FF" />
+            <SolidColorBrush x:Key="PressedBlueBrush" Color="#2E68DA" />
+            <SolidColorBrush x:Key="AccentSoftBrush" Color="#18284A" />
+
+            <!-- Semantic -->
+            <SolidColorBrush x:Key="SuccessGreenBrush" Color="#248A3D" />
+            <SolidColorBrush x:Key="SuccessGreenHoverBrush" Color="#2EA34A" />
+            <SolidColorBrush x:Key="SuccessGreenPressedBrush" Color="#1D7332" />
+            <SolidColorBrush x:Key="ErrorRedBrush" Color="#C94343" />
+            <SolidColorBrush x:Key="ErrorRedHoverBrush" Color="#E05656" />
+            <SolidColorBrush x:Key="ErrorRedPressedBrush" Color="#A93636" />
+            <SolidColorBrush x:Key="WarningAmberBrush" Color="#D6A03A" />
+            <SolidColorBrush x:Key="NeutralGrayBrush" Color="#2C3340" />
+            <SolidColorBrush x:Key="NeutralGrayHoverBrush" Color="#3A4354" />
+            <SolidColorBrush x:Key="NeutralGrayPressedBrush" Color="#242A36" />
+
+            <!-- Text -->
+            <SolidColorBrush x:Key="PrimaryTextBrush" Color="#F1F3F7" />
+            <SolidColorBrush x:Key="SecondaryTextBrush" Color="#C3CAD6" />
+            <SolidColorBrush x:Key="GrayTextBrush" Color="#8F98A8" />
+            <SolidColorBrush x:Key="WhiteBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="BlackBrush" Color="#000000" />
+            <SolidColorBrush x:Key="SuccessTextBrush" Color="#6DDC8A" />
+            <SolidColorBrush x:Key="ErrorTextBrush" Color="#FF8A8A" />
+            <SolidColorBrush x:Key="WarningTextBrush" Color="#F0C05A" />
+            <SolidColorBrush x:Key="InfoTextBrush" Color="#7FB4FF" />
+
+            <!-- Duplicate window accents -->
+            <SolidColorBrush x:Key="DuplicateWarningBackgroundBrush" Color="#2B2410" />
+            <SolidColorBrush x:Key="DuplicateWarningBorderBrush" Color="#56471B" />
+            <SolidColorBrush x:Key="DuplicateWarningTextBrush" Color="#F0C05A" />
+
+            <!-- Fluent theme overrides for a cohesive dark surface -->
+            <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="#1D222B" />
+            <SolidColorBrush x:Key="ExpanderHeaderBorderBrush" Color="#2C3340" />
+            <SolidColorBrush x:Key="ExpanderHeaderForeground" Color="#F1F3F7" />
+            <SolidColorBrush x:Key="ExpanderContentBackground" Color="#161A21" />
+            <SolidColorBrush x:Key="ExpanderContentBorderBrush" Color="#2C3340" />
+            <SolidColorBrush x:Key="ExpanderChevronForeground" Color="#C3CAD6" />
+            <SolidColorBrush x:Key="ExpanderChevronBackground" Color="Transparent" />
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{StaticResource WindowBackgroundBrush}" />
+            <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.subtitle">
+            <Setter Property="FontSize" Value="17" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="{StaticResource GrayTextBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.hint">
+            <Setter Property="Foreground" Value="{StaticResource GrayTextBrush}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontStyle" Value="Italic" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.statValue">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+
+        <Style Selector="TextBlock.statCategory">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+        </Style>
+
+        <Style Selector="TextBlock.success"><Setter Property="Foreground" Value="{StaticResource SuccessTextBrush}" /></Style>
+        <Style Selector="TextBlock.failure"><Setter Property="Foreground" Value="{StaticResource ErrorTextBrush}" /></Style>
+        <Style Selector="TextBlock.warning"><Setter Property="Foreground" Value="{StaticResource WarningTextBrush}" /></Style>
+        <Style Selector="TextBlock.info"><Setter Property="Foreground" Value="{StaticResource InfoTextBrush}" /></Style>
+
+        <!-- Buttons: consistent rounded dark buttons with class-based accents -->
+        <Style Selector="Button">
+            <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="7"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Name="PART_ButtonContent"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="Button:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{StaticResource NeutralGrayHoverBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderHoverBrush}" />
+        </Style>
+        <Style Selector="Button:pressed /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{StaticResource NeutralGrayPressedBrush}" />
+        </Style>
+        <Style Selector="Button:disabled">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{StaticResource AccentBlueBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{StaticResource HoverBlueBrush}" />
+        </Style>
+        <Style Selector="Button.primary:pressed /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{StaticResource PressedBlueBrush}" />
+        </Style>
+        <Style Selector="Button.primary:disabled">
+            <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="Opacity" Value="0.55" />
+        </Style>
+
+        <Style Selector="Button.start">
+            <Setter Property="Background" Value="{StaticResource SuccessGreenBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
+        </Style>
+        <Style Selector="Button.start:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{StaticResource SuccessGreenHoverBrush}" />
+        </Style>
+        <Style Selector="Button.start:pressed /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{StaticResource SuccessGreenPressedBrush}" />
+        </Style>
+        <Style Selector="Button.start:disabled">
+            <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="Opacity" Value="0.55" />
+        </Style>
+
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="{StaticResource ErrorRedBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
+        </Style>
+        <Style Selector="Button.danger:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{StaticResource ErrorRedHoverBrush}" />
+        </Style>
+        <Style Selector="Button.danger:pressed /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{StaticResource ErrorRedPressedBrush}" />
+        </Style>
+        <Style Selector="Button.danger:disabled">
+            <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="Opacity" Value="0.55" />
+        </Style>
+
+        <Style Selector="Button.neutral">
+            <Setter Property="Background" Value="{StaticResource NeutralGrayBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        </Style>
+
+        <Style Selector="Button.menu">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+        </Style>
+        <Style Selector="Button.menu:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{StaticResource HoverBackgroundBrush}" />
+        </Style>
+        <Style Selector="Button.menu.active">
+            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource InfoTextBrush}" />
+        </Style>
+
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource InfoTextBrush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Button.link:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="SelectionBrush" Value="{StaticResource AccentBlueBrush}" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="MinHeight" Value="34" />
+        </Style>
+
+        <Style Selector="TextBox.log">
+            <Setter Property="FontFamily" Value="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="IsReadOnly" Value="True" />
+        </Style>
+
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+            <Setter Property="Margin" Value="4" />
+        </Style>
+
+        <Style Selector="CheckBox.danger">
+            <Setter Property="Foreground" Value="{StaticResource ErrorTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+
+        <Style Selector="Border.toolbar">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="16,10" />
+        </Style>
+
+        <Style Selector="Border.statusBar">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
+            <Setter Property="Padding" Value="14,7" />
+        </Style>
+
+        <Style Selector="Border.statCard">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,7" />
+            <Setter Property="Margin" Value="3" />
+        </Style>
+
+        <Style Selector="ProgressBar">
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}" />
+            <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}" />
+        </Style>
+
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="RowBackground" Value="Transparent" />
+            <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="VerticalGridLinesBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="CanUserReorderColumns" Value="False" />
+            <Setter Property="SelectionMode" Value="Single" />
+        </Style>
+
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+        </Style>
+
+        <Style Selector="DataGridRow">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="{StaticResource HoverBackgroundBrush}" />
+        </Style>
+
+        <Style Selector="Expander">
+            <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Expander /template/ ToggleButton#ExpanderHeader">
+            <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+
+        <Style Selector="GridSplitter">
+            <Setter Property="Background" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="Width" Value="5" />
+        </Style>
+
+        <Style Selector="ScrollViewer">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </Application.Styles>
+</Application>

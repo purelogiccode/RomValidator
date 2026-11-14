@@ -4,12 +4,14 @@ Instructions for AI coding agents and contributors working on ROM Validator.
 
 ## Project Overview
 
-ROM Validator is a Windows-only WPF desktop application that validates ROM files
+ROM Validator is a cross-platform desktop application that validates ROM files
 against No-Intro DAT files and generates new DAT files from a ROM collection.
 
-- **Framework:** .NET 11 (`net11.0-windows`), C# 15, nullable enabled
-- **UI:** WPF with WPF-UI (Fluent theme)
-- **Archives:** SharpCompress, with the bundled `7za.exe` / `7za_arm64.exe` as fallback
+- **Framework:** .NET 11 (`net11.0`), C# 15, nullable enabled
+- **UI:** Avalonia 12 with FluentTheme and a custom professional dark palette
+- **Platforms:** Windows, Linux and macOS on x64 and arm64
+- **Archives:** SharpCompress, with optional 7-Zip fallback (`7za.exe` on Windows,
+  system `7zz`/`7z` on Linux/macOS)
 - **Logging / reporting:** Serilog; Warning and higher events are forwarded to the
   bug-report API
 - **Tests:** xUnit in `RomValidator.Tests`
@@ -19,13 +21,25 @@ against No-Intro DAT files and generates new DAT files from a ROM collection.
 
 | Path | Contents |
 |:-----|:---------|
-| `RomValidator/` | WPF application |
-| `RomValidator/Pages/` | Validate ROMs and Generate DAT pages |
+| `RomValidator/` | Avalonia application |
+| `RomValidator/Pages/` | Validate ROMs and Generate DAT views (`.axaml`) |
+| `RomValidator/Views/` | Themed dialogs and shared windows |
 | `RomValidator/Services/` | Hashing, archives, DAT parsing, logging, temp cleanup, bug reporting |
 | `RomValidator/Models/` | Domain models and DAT serialization types |
 | `RomValidator.Tests/` | Unit and integration tests |
 | `docs/` | User and developer documentation |
 | `.github/workflows/` | CI, release and documentation workflows |
+
+## Release Bundles
+
+| Platform | Architectures | Format |
+|:---------|:--------------|:-------|
+| Windows | `win-x64`, `win-arm64` | `.zip` |
+| Linux | `linux-x64`, `linux-arm64` | `.tar.gz` |
+| macOS | `osx-x64`, `osx-arm64` | `.dmg` (contains `ROM Validator.app`) |
+
+Release bundles are self-contained and do not require the .NET runtime on the target
+machine. Build them with `dotnet publish` using the matching runtime identifier.
 
 ## Prerequisites
 
@@ -87,9 +101,12 @@ Roslynator.Analyzers are enabled, so new warnings are treated as defects.
 - Use file-scoped namespaces, four-space indentation, and the existing brace style.
 - Keep public types and members documented with XML comments.
 - Prefer existing helpers: `FileSystemHelper`, `AppPaths`, `ArchiveService`,
-  `TempDirectoryHelper`, `LoggerService`.
+  `TempDirectoryHelper`, `LoggerService`, `DialogService`.
 - Use `CancellationToken` for cancellable asynchronous work and `ConfigureAwait(false)`
   in services and other non-UI code.
+- Keep UI code portable: no WPF, WinForms or Windows-only APIs. Use Avalonia storage
+  pickers, `Dispatcher.UIThread`, and `Process.Start(..., UseShellExecute = true)` for
+  shell integration.
 - Keep archive, hashing and error-handling behavior aligned with the existing user-error
   policy: corrupt/unsupported user files are reported to the user, not as application
   bugs.

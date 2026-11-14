@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.IO;
 
 namespace RomValidator.Services;
 

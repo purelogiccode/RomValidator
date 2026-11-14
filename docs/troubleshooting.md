@@ -9,15 +9,32 @@ description: "Solutions for common ROM Validator problems."
 
 ## The application will not start and shows "Invalid Location"
 
-ROM Validator refuses to run from a temporary folder or directly from a zip archive. Extract the
-release zip to a permanent folder (for example `C:\Program Files\ROM Validator`) and run
-`RomValidator.exe` from there.
+On Windows, ROM Validator refuses to run from a temporary folder or directly from a zip archive.
+Extract the release bundle to a permanent folder (for example `C:\Program Files\ROM Validator`)
+and run `RomValidator.exe` from there.
 
-## "The .NET Desktop Runtime is required"
+## The application does not start on Linux
 
-The release zip is framework-dependent. Install the .NET 10 Desktop Runtime from
-[dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) and start the
-application again.
+Some extraction tools do not preserve the executable bit. Make the file executable and start it
+again:
+
+```bash
+chmod +x RomValidator
+./RomValidator
+```
+
+## macOS refuses to open the application
+
+The app in the `.dmg` is ad-hoc signed rather than notarized, so Gatekeeper may block the first
+launch. Open the app from Finder with **right-click > Open**, or allow it under
+**System Settings > Privacy & Security**, then start it again.
+
+## The 7-Zip fallback is not available (Linux/macOS)
+
+Archive operations that SharpCompress cannot handle need a system 7-Zip executable named `7zz`,
+`7z` or `7za`, either next to the application or on the `PATH`. Install 7-Zip with your package
+manager to enable the fallback. Zip reading and creation still work without it; the missing
+fallback is logged at startup. Windows bundles include the fallback executables.
 
 ## A DAT file is rejected
 
@@ -55,13 +72,15 @@ size). Free space on one of your drives or disable renaming inside archives, the
 
 ## Screenshots are not in the application folder
 
-When the application folder is read-only (for example under `C:\Program Files`), screenshots go
-to `%LOCALAPPDATA%\ROM Validator\Screenshot`. Click **App Data** to open that folder.
+When the application folder is read-only (for example under `C:\Program Files` or `/usr`),
+screenshots go to the `Screenshot` folder in the per-user data directory
+(`%LOCALAPPDATA%\ROM Validator` on Windows, `~/Library/Application Support/ROM Validator` on
+macOS, `~/.local/share/ROM Validator` on Linux). Click **App Data** to open that folder.
 
 ## Finding logs
 
-Logs are stored in `%LOCALAPPDATA%\ROM Validator\Logs` and retained for seven days. Include the
-relevant log file when you
+Logs are stored in the `Logs` folder of the per-user data directory and retained for seven days.
+Include the relevant log file when you
 [open an issue](https://github.com/purelogiccode/RomValidator/issues).
 
 ## Reporting a bug

@@ -1,15 +1,14 @@
-using System.IO;
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Media.Imaging;
 
 namespace RomValidator.Services;
 
 /// <summary>
 /// Service that captures screenshots of the active application window.
 /// Screenshots are saved to the "Screenshot" folder inside the application folder;
-/// when that folder is not writable (e.g. the app is installed under Program Files),
-/// they fall back to %LOCALAPPDATA%\ROM Validator\Screenshot.
+/// when that folder is not writable, they fall back to the per-user data folder.
 /// </summary>
 public static class ScreenshotService
 {
@@ -38,9 +37,7 @@ public static class ScreenshotService
         }
     }
 
-    /// <summary>
-    /// Captures a screenshot of the specified window and saves it as a PNG file.
-    /// </summary>
+    /// <summary>Captures a screenshot of the specified window and saves it as a PNG file.</summary>
     /// <param name="window">The window to capture.</param>
     /// <returns>The full path of the saved screenshot.</returns>
     public static string CaptureWindowScreenshot(Window window)
@@ -49,7 +46,6 @@ public static class ScreenshotService
 
         var filename = $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png";
 
-        // Primary location: "Screenshot" folder inside the application folder.
         var primaryDirectory = AppPaths.ScreenshotsDirectory;
         try
         {
@@ -61,8 +57,6 @@ public static class ScreenshotService
         }
         catch (Exception primaryEx)
         {
-            // Fallback location: AppData\ROM Validator\Screenshot. The application folder
-            // being read-only is an environmental condition, so log at Information level.
             LoggerService.LogInfo("Screenshot",
                 $"Could not save screenshot to '{primaryDirectory}': {primaryEx.Message}. Falling back to AppData.");
 
@@ -75,19 +69,16 @@ public static class ScreenshotService
         }
     }
 
-    /// <summary>
-    /// Returns the currently active application window, falling back to the main window.
-    /// </summary>
+    /// <summary>Returns the currently active application window, falling back to the main window.</summary>
     /// <returns>The active window, or null when no window is available.</returns>
     private static Window? GetActiveWindow()
     {
-        var application = Application.Current;
-        if (application == null)
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
         {
             return null;
         }
 
-        foreach (Window window in application.Windows)
+        foreach (var window in desktop.Windows)
         {
             if (window.IsActive)
             {
@@ -95,29 +86,22 @@ public static class ScreenshotService
             }
         }
 
-        return application.MainWindow;
+        return desktop.MainWindow;
     }
 
-    /// <summary>
-    /// Renders the specified window to a PNG file at the window's actual DPI.
-    /// </summary>
+    /// <summary>Renders the specified window to a PNG file at the window's actual scaling.</summary>
     /// <param name="window">The window to render.</param>
     /// <param name="filePath">The destination PNG file path.</param>
     private static void SaveWindowToPng(Window window, string filePath)
     {
-        // Capture at the window's actual DPI so the PNG matches the physical screen size.
-        var dpi = VisualTreeHelper.GetDpi(window);
-        var width = (int)Math.Max(window.ActualWidth * dpi.DpiScaleX, 1);
-        var height = (int)Math.Max(window.ActualHeight * dpi.DpiScaleY, 1);
+        var scaling = window.RenderScaling;
+        var width = Math.Max((int)(window.Bounds.Width * scaling), 1);
+        var height = Math.Max((int)(window.Bounds.Height * scaling), 1);
 
-        var renderTarget =
-            new RenderTargetBitmap(width, height, dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
+        using var renderTarget = new RenderTargetBitmap(
+            new PixelSize(width, height),
+            new Vector(96 * scaling, 96 * scaling));
         renderTarget.Render(window);
-
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(renderTarget));
-
-        using var stream = File.Create(filePath);
-        encoder.Save(stream);
+        renderTarget.Save(filePath, PngBitmapEncoderOptions.Default);
     }
 }

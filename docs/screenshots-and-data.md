@@ -12,31 +12,39 @@ description: "F8 screenshots, log files, the App Data folder, and what is sent i
 Press **F8** anywhere in the application to capture the active window. Screenshots are saved as
 PNG files and the status bar shows the full path of the saved file.
 
-| Priority | Location |
-|:---------|:---------|
-| Primary | `Screenshot\` next to `RomValidator.exe` |
-| Fallback | `%LOCALAPPDATA%\ROM Validator\Screenshot` |
+| Priority | Windows | macOS | Linux |
+|:---------|:--------|:------|:------|
+| Primary | `Screenshot` next to `RomValidator.exe` | `Screenshot` next to the app bundle executable | `Screenshot` next to `RomValidator` |
+| Fallback | `%LOCALAPPDATA%\ROM Validator\Screenshot` | `~/Library/Application Support/ROM Validator/Screenshot` | `~/.local/share/ROM Validator/Screenshot` |
 
-The fallback is used automatically when the application folder is read-only, for example when
-the application is installed under `C:\Program Files`.
+The fallback is used automatically when the application folder is read-only, for example when the
+application is installed in a protected location. On Linux, the XDG data directory is used when it
+is configured.
 
 ## Application data folder
 
-Click **App Data** in the header to open the per-user folder in File Explorer:
+Click **App Data** in the header to open the per-user folder in your file manager:
+
+| Platform | Folder |
+|:---------|:-------|
+| Windows | `%LOCALAPPDATA%\ROM Validator\` |
+| macOS | `~/Library/Application Support/ROM Validator/` |
+| Linux | `~/.local/share/ROM Validator/` (XDG data directory when set) |
 
 ```
-%LOCALAPPDATA%\ROM Validator\
-├── Logs\         rolling Serilog log files (7 days retained)
-└── Screenshot\   fallback screenshots
+ROM Validator/
+├── Logs/         rolling Serilog log files (7 days retained)
+└── Screenshot/   fallback screenshots
 ```
 
-The folder is always writable, even for installed applications.
+The folder is always writable, even for applications installed in a protected location.
 
 ## Log files
 
 ROM Validator writes structured logs with [Serilog](https://serilog.net/):
 
-- one rolling file per day in `Logs\`, retained for seven days,
+- one rolling file per day in the `Logs` folder of the per-user data directory, retained for
+  seven days,
 - Debug and higher events are written locally,
 - **Warning, Error and Fatal** events are also forwarded to the bug report API.
 
@@ -48,8 +56,8 @@ Log entries include the component name, so you can search for `HashCalculator`,
 Unhandled exceptions, logged errors and warnings are sent to the bug report API. A report
 contains:
 
-- environment details (application version, OS version, architecture, processor count,
-  base directory, temp path),
+- environment details (application version, operating system and version, architecture,
+  processor count, base directory, temp path),
 - the error context and any additional information,
 - the full exception chain with stack traces and HResult values.
 
