@@ -71,7 +71,7 @@ Roslynator.Analyzers are enabled, so new warnings are treated as defects.
 
    ```powershell
    jb inspectcode CSharp_RomValidator.sln `
-     --output "$env:TEMP\romvalidator-inspectcode.sarif" `
+     --output="$env:TEMP\romvalidator-inspectcode.sarif" `
      --format=Sarif `
      --severity=WARNING `
      --verbosity=WARN

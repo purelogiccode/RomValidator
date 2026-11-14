@@ -50,7 +50,7 @@ collections or DAT files when relevant.
 
    ```powershell
    jb inspectcode CSharp_RomValidator.sln `
-     --output "$env:TEMP\romvalidator-inspectcode.sarif" `
+     --output="$env:TEMP\romvalidator-inspectcode.sarif" `
      --format=Sarif `
      --severity=WARNING `
      --verbosity=WARN
