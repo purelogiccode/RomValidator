@@ -8,9 +8,9 @@
         <Nullable>enable</Nullable>
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <ApplicationIcon>icon\icon.ico</ApplicationIcon>
-        <Version>3.0.1</Version>
-        <AssemblyVersion>3.0.1</AssemblyVersion>
-        <FileVersion>3.0.1</FileVersion>
+        <Version>3.0.2</Version>
+        <AssemblyVersion>3.0.2</AssemblyVersion>
+        <FileVersion>3.0.2</FileVersion>
         <DebugType>embedded</DebugType>
         <DebugSymbols>true</DebugSymbols>
         <IsPackable>false</IsPackable>
@@ -32,12 +32,14 @@
     <ItemGroup>
         <AvaloniaResource Include="images\logo.png" />
         <AvaloniaResource Include="icon\icon.png" />
-        <EmbeddedResource Include="7za.exe"
-                          LogicalName="RomValidator.Resources.7za.exe"
-                          Condition="'$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'win-x64'" />
-        <EmbeddedResource Include="7za_arm64.exe"
-                          LogicalName="RomValidator.Resources.7za_arm64.exe"
-                          Condition="'$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'win-arm64'" />
+        <None Update="7za.exe" Condition="'$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == 'win-arm64'">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+        </None>
+        <None Update="7za_arm64.exe" Condition="'$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == 'win-arm64'">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+        </None>
     </ItemGroup>
 
     <ItemGroup>

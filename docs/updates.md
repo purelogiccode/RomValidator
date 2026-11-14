@@ -13,7 +13,7 @@ page for a newer version every time it starts.
 ## How it works
 
 1. After the main window is shown, the application queries the latest GitHub release.
-2. The release tag is compared with the running version. Tags look like `release_3.0.0`
+2. The release tag is compared with the running version. Tags look like `release_3.0.2`
    (older `v2.8.0` tags are also understood).
 3. When a newer version is available:
    - the status bar shows the new version,

@@ -1,3 +1,13 @@
+Release 3.0.2
+2026-11-14
+
+- Restored the 2.9.2-style bundle layout: one single-file, framework-dependent
+  `RomValidator.exe` with `7za.exe` and `7za_arm64.exe` shipped alongside it
+- The Windows 7-Zip fallback is no longer embedded in the application binary
+- Release bundles no longer include the XML documentation file
+- Requires the .NET 11 Desktop Runtime on Windows and the .NET 11 runtime on
+  Linux/macOS
+
 Release 3.0.1
 2026-11-14
 

@@ -39,9 +39,9 @@ against DAT files and generates new No-Intro compliant DAT files from your colle
   available for Windows, Linux and macOS on x64 and ARM64.
 - **ROM validation** against No-Intro XML DAT files with CRC32, MD5, SHA-1 and SHA-256 checks.
 - **DAT generation** from any folder of ROMs, including duplicate detection.
-- **Archive support** for `.zip`, `.7z` and `.rar` using SharpCompress. The Windows executable
-  embeds the architecture-matched 7-Zip 26.03 fallback and extracts it on first use; on Linux and
-  macOS a system-installed `7zz`, `7z` or `7za` is used when available.
+- **Archive support** for `.zip`, `.7z` and `.rar` using SharpCompress. Windows bundles ship the
+  architecture-matched 7-Zip 26.03 fallback (`7za.exe` / `7za_arm64.exe`) next to the application;
+  on Linux and macOS a system-installed `7zz`, `7z` or `7za` is used when available.
 - **Safe file operations**: moves go to `_success`, `_fail` and `_duplicate` folders; deletion
   is opt-in and requires confirmation.
 - **Automatic update checks** against GitHub releases.
@@ -56,8 +56,8 @@ against DAT files and generates new No-Intro compliant DAT files from your colle
 | Linux | x64, ARM64 | `.tar.gz` |
 | macOS 11+ | Intel, Apple Silicon | `.dmg` (contains `ROM Validator.app`) |
 
-Release bundles contain one self-contained executable, so no separate .NET runtime is required.
-Every bundle also includes `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
+Release bundles contain one single-file, framework-dependent executable, so the .NET 11 runtime is
+required. Every bundle also includes `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
 
 ## Project links
 

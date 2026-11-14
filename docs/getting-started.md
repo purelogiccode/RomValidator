@@ -14,7 +14,7 @@ This page walks you through installing ROM Validator and completing your first v
 |:----------|:------------|
 | Operating system | Windows 10/11, Linux, or macOS 11 or later |
 | Architecture | x64 or ARM64 |
-| Runtime | None - the release bundles are self-contained |
+| Runtime | .NET 11 Desktop Runtime (Windows) or .NET 11 runtime (Linux/macOS) |
 
 > On Windows, the application refuses to run from a temporary folder or directly from a zip
 > archive. Always extract the release bundle to a permanent folder before launching it.
@@ -34,11 +34,11 @@ This page walks you through installing ROM Validator and completing your first v
    - **macOS** - open the `.dmg` and drag `ROM Validator.app` to your Applications folder, then
      launch it. The app is ad-hoc signed, so macOS may ask you to confirm the first launch.
 
-Every bundle contains one self-contained executable, so no separate .NET runtime has to be
-installed. The Windows executable embeds the architecture-matched 7-Zip fallback and extracts it
-on first use; every bundle also contains `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`. On Linux
-and macOS the archive fallback uses a system-installed `7zz`, `7z` or `7za` when one is available;
-otherwise SharpCompress is used on its own.
+Every bundle contains one single-file executable and requires the .NET 11 runtime. Windows
+bundles also ship `7za.exe` and `7za_arm64.exe` alongside the application. Every bundle also
+contains `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`. On Linux and macOS the archive fallback uses
+a system-installed `7zz`, `7z` or `7za` when one is available; otherwise SharpCompress is used on
+its own.
 
 ## First run
 

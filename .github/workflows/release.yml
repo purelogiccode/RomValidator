@@ -94,7 +94,7 @@ jobs:
           dotnet publish RomValidator/RomValidator.csproj `
             --configuration Release `
             --runtime ${{ matrix.rid }} `
-            --self-contained true `
+            --self-contained false `
             --output "publish/${{ matrix.rid }}" `
             -p:Version=${{ steps.version.outputs.version }} `
             -p:PublishSingleFile=true `
@@ -104,6 +104,12 @@ jobs:
           Get-ChildItem "publish/${{ matrix.rid }}" -Filter *.pdb -File -Recurse |
             Remove-Item -Force
           Remove-Item "publish/${{ matrix.rid }}/RomValidator.xml" -Force -ErrorAction SilentlyContinue
+
+      - name: Add Windows 7-Zip fallbacks
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          Copy-Item RomValidator/7za.exe, RomValidator/7za_arm64.exe "publish/${{ matrix.rid }}/"
 
       - name: Add license, readme and whatsnew to the bundle
         shell: pwsh

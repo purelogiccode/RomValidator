@@ -58,7 +58,7 @@ panel, while statistics and progress remain full-width below both columns.
 |:--------|:---------------|
 | `HashCalculator` | Computes CRC32/MD5/SHA-1/SHA-256 for files and archive entries. Streams data, retries locked files, detects disk-full and CRC errors |
 | `ArchiveService` | SharpCompress wrappers: list entries, total size, extract, create zip and 7z |
-| `SevenZipProcess` | Runs a 7-Zip fallback executable: the embedded `7za.exe` / `7za_arm64.exe` on Windows (extracted to the per-user data folder on first use), or a system `7zz` / `7z` / `7za` on Linux and macOS |
+| `SevenZipProcess` | Runs a 7-Zip fallback executable: the bundled `7za.exe` / `7za_arm64.exe` on Windows, or a system `7zz` / `7z` / `7za` on Linux and macOS |
 | `TempDirectoryHelper` | Creates temp folders, tracks them, deletes with retries and background retry timer, estimates archive sizes |
 | `LoggerService` | Facade over Serilog; never throws; used by every component |
 | `BugReportService` | Builds and sends bug reports (environment/error/exception sections) |
@@ -135,8 +135,8 @@ and errors indicate genuine application anomalies.
 
 1. **SharpCompress 0.50.9** is the primary reader/writer for zip and 7z, and the reader for rar.
 2. A **7-Zip fallback** is used when SharpCompress cannot read or create an archive:
-   - Windows embeds the architecture-matched `7za.exe` / `7za_arm64.exe` (7-Zip 26.03) and
-     extracts it to the per-user data folder on first use,
+   - Windows bundles the architecture-matched `7za.exe` / `7za_arm64.exe` (7-Zip 26.03) next to
+     the application,
    - Linux and macOS look for `7zz`, `7z` or `7za` next to the application and on the `PATH`.
 3. RAR archives are converted to zip when an internal rename is required, because RAR creation is
    not supported.

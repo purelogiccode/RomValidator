@@ -29,8 +29,8 @@ A cross-platform desktop application for validating ROM files against DAT files 
 - **DAT File Generation**: Generate new No-Intro compliant DAT files from your ROM collection
 - **Duplicate Detection**: Identify duplicate ROM files in your collection
 - **Multiple Hash Support**: CRC32, MD5, SHA-1, and SHA-256 hash verification
-- **Cross-Platform**: Windows, Linux and macOS builds on x64 and ARM64, published as self-contained single-file executables that need no separate .NET runtime
-- **Archive Support**: Read ROMs directly from `.zip`, `.7z`, and `.rar` archives (SharpCompress). The Windows executable embeds the architecture-matched 7-Zip fallback and extracts it on first use; on Linux and macOS a system-installed `7zz`, `7z` or `7za` is used when available
+- **Cross-Platform**: Windows, Linux and macOS builds on x64 and ARM64, published as single-file executables
+- **Archive Support**: Read ROMs directly from `.zip`, `.7z`, and `.rar` archives (SharpCompress). Windows bundles include `7za.exe` / `7za_arm64.exe` next to the application as a fallback; on Linux and macOS a system-installed `7zz`, `7z` or `7za` is used when available
 - **Modern Dark Theme**: Avalonia 12.1 with the Fluent theme and a custom professional dark palette
 - **Live Activity Log**: a full-height, resizable log panel on the right of the validation screen, with controls and DAT information on the left
 - **Screenshot Capture**: Press **F8** to save a screenshot of the active window to the `Screenshot` folder next to the executable, falling back to the per-user data folder when the application folder is read-only
@@ -42,8 +42,8 @@ A cross-platform desktop application for validating ROM files against DAT files 
 ## Requirements
 
 - **Windows 10/11, Linux or macOS 11+** on x64 or ARM64
-- **No .NET runtime required** - each release bundle contains one self-contained executable
-- **7-Zip** - the Windows executable embeds the matching 7-Zip fallback (`7za.exe` for x64, `7za_arm64.exe` for ARM64, 7-Zip 26.03); on Linux and macOS an optional system `7zz`, `7z` or `7za` enables the archive fallback
+- **.NET 11 Desktop Runtime** - the single-file application is framework-dependent
+- **7-Zip** - the Windows bundle ships `7za.exe` for x64 and `7za_arm64.exe` for ARM64 (7-Zip 26.03); on Linux and macOS an optional system `7zz`, `7z` or `7za` enables the archive fallback
 
 ## Installation
 
@@ -56,7 +56,7 @@ A cross-platform desktop application for validating ROM files against DAT files 
    - **Linux:** extract the archive, make the executable startable if needed (`chmod +x RomValidator`), then run `./RomValidator`.
    - **macOS:** open the `.dmg` and drag `ROM Validator.app` to your Applications folder, then launch it from there.
 
-Every bundle contains one self-contained executable, so no separate runtime needs to be installed. The Windows 7-Zip fallback is embedded in the executable and extracted on first use. Every bundle also contains `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
+Every bundle contains one single-file executable and requires the .NET 11 Desktop Runtime. Windows bundles also ship `7za.exe` and `7za_arm64.exe` alongside the application. Every bundle also contains `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
 
 Full instructions: [Getting Started](docs/getting-started.md).
 
@@ -115,7 +115,7 @@ Primary screenshots are written to the `Screenshot` folder next to the executabl
 - **Avalonia** (12.1.6): cross-platform UI framework, Fluent theme, Inter font and DataGrid
 - **Serilog** (4.4.0) + Sinks (Debug, File): structured logging and automatic bug reports
 - **SharpCompress** (0.50.9): zip/7z/RAR archive reading and zip/7z archive creation
-- **7-Zip 26.03** (`7za.exe` / `7za_arm64.exe`): embedded in the Windows executable and extracted on demand; a system `7zz`, `7z` or `7za` is used on Linux and macOS when present
+- **7-Zip 26.03** (`7za.exe` / `7za_arm64.exe`): shipped next to `RomValidator.exe` in the Windows bundles; a system `7zz`, `7z` or `7za` is used on Linux and macOS when present
 - **xUnit** (2.9.3), **Microsoft.NET.Test.Sdk** (18.12.0), **coverlet.collector** (10.1.0): testing
 
 ## Tests
@@ -133,7 +133,7 @@ The suite runs on Windows, Linux and macOS; CI executes it on all three platform
 | Workflow | Purpose |
 |:---------|:--------|
 | [CI](.github/workflows/ci.yml) | Builds and tests on `windows-latest`, `ubuntu-latest` and `macos-latest`, and runs JetBrains InspectCode with zero findings |
-| [Release](.github/workflows/release.yml) | Runs the test suite, then publishes single-file self-contained bundles for win-x64/win-arm64, linux-x64/linux-arm64 and osx-x64/osx-arm64 (with license, readme and what's new) plus checksums on `release_*` / `v*` tags, with generated release notes |
+| [Release](.github/workflows/release.yml) | Runs the test suite, then publishes single-file framework-dependent bundles for win-x64/win-arm64, linux-x64/linux-arm64 and osx-x64/osx-arm64 (with license, readme and what's new) plus checksums on `release_*` / `v*` tags, with generated release notes |
 | [Docs](.github/workflows/docs.yml) | Publishes the documentation site and mirrors `docs/` to the wiki |
 
 See [CI/CD](docs/ci-cd.md) for details.

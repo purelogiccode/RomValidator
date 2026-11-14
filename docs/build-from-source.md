@@ -45,14 +45,14 @@ dotnet run --project RomValidator/RomValidator.csproj
 
 ## Publish
 
-The release workflow publishes single-file, self-contained builds for every supported runtime
-identifier:
+The release workflow publishes single-file, framework-dependent builds for every supported
+runtime identifier:
 
 ```powershell
 dotnet publish RomValidator/RomValidator.csproj `
   --configuration Release `
   --runtime win-x64 `
-  --self-contained true `
+  --self-contained false `
   --output publish/win-x64 `
   -p:PublishSingleFile=true `
   -p:IncludeNativeLibrariesForSelfExtract=true
@@ -68,21 +68,20 @@ output as follows:
 | `linux-x64`, `linux-arm64` | `release_<version>_<rid>.tar.gz` |
 | `osx-x64`, `osx-arm64` | `release_<version>_<rid>.dmg` (contains `ROM Validator.app`) |
 
-Self-contained bundles do not require the .NET runtime on the target machine. To produce a
-framework-dependent build instead, use `--self-contained false`.
+The published bundles are framework-dependent: install the .NET 11 Desktop Runtime on Windows or
+the .NET 11 runtime on Linux and macOS. To produce a self-contained build instead, use
+`--self-contained true`.
 
 The publish output includes:
 
 - `RomValidator.exe` (Windows) or `RomValidator` (Linux/macOS), a single binary containing the
-  application, its dependencies and the .NET runtime,
+  application and its dependencies but not the .NET runtime,
 - `RomValidator.xml` (XML documentation) when generated locally; the release workflow removes it
   together with `.pdb` files,
-- optional package files such as `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md` added by the release
-  workflow.
+- optional package files such as `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`, plus
+  `7za.exe` and `7za_arm64.exe` on Windows, added by the release workflow.
 
-The Windows executable embeds the architecture-matched 7-Zip fallback and extracts it to the
-per-user data folder on first use. Linux and macOS use a system-installed `7zz`, `7z` or `7za`
-when available.
+Linux and macOS use a system-installed `7zz`, `7z` or `7za` when available.
 
 ## Project layout
 

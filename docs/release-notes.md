@@ -9,6 +9,19 @@ description: "Release history for ROM Validator. Full details on GitHub Releases
 The full release history, with commit-level detail and downloadable bundles, is available on the
 [GitHub Releases](https://github.com/purelogiccode/RomValidator/releases) page.
 
+## 3.0.2
+
+### Highlights
+
+- **2.9.2-style bundle layout**: each bundle contains one single-file, framework-dependent
+  `RomValidator.exe`/`RomValidator`. Windows bundles ship `7za.exe` and `7za_arm64.exe` alongside
+  the application instead of embedding them.
+- **Smaller single-file bundles**: the application binary no longer contains the 7-Zip fallback.
+- **No XML documentation in bundles**: the release workflow excludes `RomValidator.xml` together
+  with debug symbol files.
+- **Runtime requirement**: the .NET 11 Desktop Runtime is required on Windows; the .NET 11 runtime
+  is required on Linux and macOS.
+
 ## 3.0.1
 
 ### Highlights

@@ -38,7 +38,7 @@ Test results (`*.trx`) and coverage output are uploaded as per-platform artifact
 Flow:
 
 1. **verify** - builds and runs the full test suite on `windows-latest`.
-2. **package** - publishes single-file, self-contained builds (`--self-contained true`,
+2. **package** - publishes single-file, framework-dependent builds (`--self-contained false`,
    `-p:PublishSingleFile=true`, `-p:IncludeNativeLibrariesForSelfExtract=true`) for six runtime
    identifiers and creates:
 
@@ -49,10 +49,10 @@ Flow:
    | macOS | `osx-x64`, `osx-arm64` | `release_<version>_<rid>.dmg` |
 
    A `.sha256` checksum file is created for every bundle. Windows zips contain the single-file
-   `RomValidator.exe`, which embeds the architecture-matched 7-Zip fallback. Linux archives
-   contain the single-file executable, marked executable before packaging. macOS disk images
-   contain `ROM Validator.app` with an ad-hoc signature and app icon. Every bundle also includes
-   `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`; debug symbol files are excluded.
+   `RomValidator.exe` plus `7za.exe` and `7za_arm64.exe`. Linux archives contain the single-file
+   executable, marked executable before packaging. macOS disk images contain
+   `ROM Validator.app` with an ad-hoc signature and app icon. Every bundle also includes
+   `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`; debug symbols and XML documentation are excluded.
 3. **release** - checks out the repository history, then creates a GitHub release for the tag and
    attaches all bundles and checksums, with automatically generated release notes.
 

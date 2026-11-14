@@ -13,6 +13,12 @@ On Windows, ROM Validator refuses to run from a temporary folder or directly fro
 Extract the release bundle to a permanent folder (for example `C:\Program Files\ROM Validator`)
 and run `RomValidator.exe` from there.
 
+## The application does not start (missing .NET runtime)
+
+The release bundles are framework-dependent. Install the **.NET 11 Desktop Runtime** on Windows,
+or the **.NET 11 runtime** on Linux and macOS, from
+<https://dotnet.microsoft.com/download/dotnet/11.0>, then start the application again.
+
 ## The application does not start on Linux
 
 Some extraction tools do not preserve the executable bit. Make the file executable and start it
@@ -34,8 +40,8 @@ launch. Open the app from Finder with **right-click > Open**, or allow it under
 Archive operations that SharpCompress cannot handle need a system 7-Zip executable named `7zz`,
 `7z` or `7za`, either next to the application or on the `PATH`. Install 7-Zip with your package
 manager to enable the fallback. Zip reading and creation still work without it; the missing
-fallback is logged at startup. The Windows executable embeds the fallback and extracts it
-automatically.
+fallback is logged at startup. Windows bundles include `7za.exe` and `7za_arm64.exe` next to
+`RomValidator.exe`.
 
 ## A DAT file is rejected
 
