@@ -45,7 +45,8 @@ dotnet run --project RomValidator/RomValidator.csproj
 
 ## Publish
 
-The release workflow publishes self-contained builds for every supported runtime identifier:
+The release workflow publishes single-file, self-contained builds for every supported runtime
+identifier:
 
 ```powershell
 dotnet publish RomValidator/RomValidator.csproj `
@@ -53,12 +54,13 @@ dotnet publish RomValidator/RomValidator.csproj `
   --runtime win-x64 `
   --self-contained true `
   --output publish/win-x64 `
-  -p:PublishSingleFile=false
+  -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
 Use the same command with another runtime identifier to target Linux or macOS, for example
 `linux-x64`, `linux-arm64`, `osx-x64` or `osx-arm64`. The release workflow packages the publish
-folders as follows:
+output as follows:
 
 | Runtime identifier | Release bundle |
 |:-------------------|:---------------|
@@ -71,10 +73,16 @@ framework-dependent build instead, use `--self-contained false`.
 
 The publish output includes:
 
-- `RomValidator.exe` (Windows) or `RomValidator` (Linux/macOS) and the .NET runtime,
-- `Avalonia` and `SharpCompress` assemblies,
-- `7za.exe` and `7za_arm64.exe` (Windows bundles),
-- `RomValidator.xml` (XML documentation).
+- `RomValidator.exe` (Windows) or `RomValidator` (Linux/macOS), a single binary containing the
+  application, its dependencies and the .NET runtime,
+- `RomValidator.xml` (XML documentation) when generated locally; the release workflow removes it
+  together with `.pdb` files,
+- optional package files such as `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md` added by the release
+  workflow.
+
+The Windows executable embeds the architecture-matched 7-Zip fallback and extracts it to the
+per-user data folder on first use. Linux and macOS use a system-installed `7zz`, `7z` or `7za`
+when available.
 
 ## Project layout
 

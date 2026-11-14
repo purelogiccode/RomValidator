@@ -14,10 +14,15 @@ public static class SevenZipProcess
 {
     private const string WindowsX64ExecutableName = "7za.exe";
     private const string WindowsArm64ExecutableName = "7za_arm64.exe";
+    private const string WindowsX64ResourceName = "RomValidator.Resources.7za.exe";
+    private const string WindowsArm64ResourceName = "RomValidator.Resources.7za_arm64.exe";
+    private static readonly Lock ExtractionLock = new();
 
     /// <summary>
-    /// Gets the 7-Zip executable matching the current platform and architecture, or
-    /// null when no executable is present next to the application or on the PATH.
+    /// Gets the 7-Zip executable matching the current platform and architecture. On
+    /// Windows the architecture-matched executable is extracted from the application
+    /// resources when it is not already present next to the application; Linux and
+    /// macOS use a system executable found next to the application or on the PATH.
     /// </summary>
     /// <returns>The full path to the 7-Zip executable, or null when it is missing.</returns>
     public static string? GetExecutablePath()
@@ -28,7 +33,7 @@ public static class SevenZipProcess
 
             if (OperatingSystem.IsWindows())
             {
-                var isArm64 = RuntimeInformation.OSArchitecture == Architecture.Arm64;
+                var isArm64 = RuntimeInformation.ProcessArchitecture == Architecture.Arm64;
                 var preferred = Path.Combine(baseDirectory,
                     isArm64 ? WindowsArm64ExecutableName : WindowsX64ExecutableName);
                 if (File.Exists(preferred))
@@ -38,7 +43,15 @@ public static class SevenZipProcess
 
                 var alternate = Path.Combine(baseDirectory,
                     isArm64 ? WindowsX64ExecutableName : WindowsArm64ExecutableName);
-                return File.Exists(alternate) ? alternate : FindOnPath("7z.exe", "7za.exe", "7zz.exe");
+                if (File.Exists(alternate))
+                {
+                    return alternate;
+                }
+
+                var extracted = ExtractBundledExecutable(
+                    isArm64 ? WindowsArm64ResourceName : WindowsX64ResourceName,
+                    isArm64 ? WindowsArm64ExecutableName : WindowsX64ExecutableName);
+                return extracted ?? FindOnPath("7z.exe", "7za.exe", "7zz.exe");
             }
 
             foreach (var name in new[] { "7zz", "7z", "7za" })
@@ -56,6 +69,61 @@ public static class SevenZipProcess
         {
             LoggerService.LogDebug("SevenZipProcess", $"Could not resolve 7-Zip executable: {ex.Message}");
             return null;
+        }
+    }
+
+    private static string? ExtractBundledExecutable(string resourceName, string executableName)
+    {
+        lock (ExtractionLock)
+        {
+            try
+            {
+                var toolsDirectory = Path.Combine(AppPaths.AppDataDirectory, "Tools");
+                var destination = Path.Combine(toolsDirectory, executableName);
+                if (File.Exists(destination) && new FileInfo(destination).Length > 0)
+                {
+                    return destination;
+                }
+
+                using var resourceStream = typeof(SevenZipProcess).Assembly.GetManifestResourceStream(resourceName);
+                if (resourceStream is null)
+                {
+                    return null;
+                }
+
+                Directory.CreateDirectory(toolsDirectory);
+                var temporaryPath = destination + ".tmp";
+                try
+                {
+                    using (var fileStream = File.Create(temporaryPath))
+                    {
+                        resourceStream.CopyTo(fileStream);
+                    }
+
+                    File.Move(temporaryPath, destination, true);
+                }
+                catch
+                {
+                    try
+                    {
+                        File.Delete(temporaryPath);
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup; the next launch can retry the extraction.
+                    }
+
+                    throw;
+                }
+
+                return destination;
+            }
+            catch (Exception ex)
+            {
+                LoggerService.LogDebug("SevenZipProcess",
+                    $"Could not extract bundled 7-Zip executable '{executableName}': {ex.Message}");
+                return null;
+            }
         }
     }
 

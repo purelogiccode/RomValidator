@@ -40,11 +40,11 @@ tool is used as a fallback for operations SharpCompress cannot handle:
 
 | Platform | Fallback |
 |:---------|:---------|
-| Windows | bundled `7za.exe` (x64) or `7za_arm64.exe` (ARM64), 7-Zip 26.03 |
+| Windows | embedded `7za.exe` (x64) or `7za_arm64.exe` (ARM64), 7-Zip 26.03, extracted to the per-user data folder on first use |
 | Linux | system `7zz`, `7z` or `7za`, found next to the application or on the `PATH` |
 | macOS | system `7zz`, `7z` or `7za`, found next to the application or on the `PATH` |
 
-On Windows the correct bundled executable is selected automatically based on the operating system
+On Windows the correct embedded executable is selected automatically based on the operating system
 architecture. On Linux and macOS the fallback is optional: install 7-Zip with your package manager
 to enable it. If no fallback executable is present, archive creation falls back to SharpCompress
 only and the application continues to work for zip archives and for reading all supported formats.

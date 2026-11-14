@@ -9,6 +9,21 @@ description: "Release history for ROM Validator. Full details on GitHub Releases
 The full release history, with commit-level detail and downloadable bundles, is available on the
 [GitHub Releases](https://github.com/purelogiccode/RomValidator/releases) page.
 
+## 3.0.1
+
+### Highlights
+
+- **Single-file bundles**: all six release targets are now published as single-file,
+  self-contained executables. Windows and Linux bundles contain `RomValidator.exe`/`RomValidator`
+  plus the license, readme and what's new; macOS bundles contain `ROM Validator.app`.
+- **Embedded Windows archive fallback**: the architecture-matched 7-Zip executable is embedded in
+  `RomValidator.exe` and extracted to the per-user data folder on first use. Linux and macOS keep
+  using a system-installed `7zz`, `7z` or `7za` when available.
+- **Leaner packages**: native and managed `.pdb` files and the XML documentation file are excluded
+  from release bundles.
+- **Validation fixes**: the completion summary is no longer shown when validation never started,
+  and the F8 screenshot shortcut works on every application window.
+
 ## 3.0.0
 
 ### Highlights

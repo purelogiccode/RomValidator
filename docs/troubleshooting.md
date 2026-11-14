@@ -34,7 +34,8 @@ launch. Open the app from Finder with **right-click > Open**, or allow it under
 Archive operations that SharpCompress cannot handle need a system 7-Zip executable named `7zz`,
 `7z` or `7za`, either next to the application or on the `PATH`. Install 7-Zip with your package
 manager to enable the fallback. Zip reading and creation still work without it; the missing
-fallback is logged at startup. Windows bundles include the fallback executables.
+fallback is logged at startup. The Windows executable embeds the fallback and extracts it
+automatically.
 
 ## A DAT file is rejected
 

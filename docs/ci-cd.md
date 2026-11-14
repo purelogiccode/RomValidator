@@ -38,8 +38,9 @@ Test results (`*.trx`) and coverage output are uploaded as per-platform artifact
 Flow:
 
 1. **verify** - builds and runs the full test suite on `windows-latest`.
-2. **package** - publishes self-contained builds (`--self-contained true`,
-   `-p:PublishSingleFile=false`) for six runtime identifiers and creates:
+2. **package** - publishes single-file, self-contained builds (`--self-contained true`,
+   `-p:PublishSingleFile=true`, `-p:IncludeNativeLibrariesForSelfExtract=true`) for six runtime
+   identifiers and creates:
 
    | Platform | Runtime identifiers | Bundle |
    |:---------|:--------------------|:-------|
@@ -47,24 +48,24 @@ Flow:
    | Linux | `linux-x64`, `linux-arm64` | `release_<version>_<rid>.tar.gz` |
    | macOS | `osx-x64`, `osx-arm64` | `release_<version>_<rid>.dmg` |
 
-   A `.sha256` checksum file is created for every bundle. Windows zips contain
-   `RomValidator.exe` and the bundled 7-Zip fallback executables (`7za.exe` / `7za_arm64.exe`).
-   Linux archives contain the executable, which is marked executable before packaging. macOS
-   disk images contain `ROM Validator.app` with an ad-hoc signature and app icon. Every bundle
-   also includes `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`.
+   A `.sha256` checksum file is created for every bundle. Windows zips contain the single-file
+   `RomValidator.exe`, which embeds the architecture-matched 7-Zip fallback. Linux archives
+   contain the single-file executable, marked executable before packaging. macOS disk images
+   contain `ROM Validator.app` with an ad-hoc signature and app icon. Every bundle also includes
+   `LICENSE.txt`, `ReadMe.md` and `WhatsNew.md`; debug symbol files are excluded.
 3. **release** - checks out the repository history, then creates a GitHub release for the tag and
    attaches all bundles and checksums, with automatically generated release notes.
 
 ### Creating a release
 
 ```powershell
-git tag release_3.0.0
-git push origin release_3.0.0
+git tag release_3.0.1
+git push origin release_3.0.1
 ```
 
 The version in the bundle names comes from the tag (`release_` or a leading `v` is stripped). This
 naming convention is compatible with the in-app update check, which parses tags such as
-`release_3.0.0` and `v3.0.0`. Keep the tag in sync with `AssemblyVersion` / `FileVersion` in
+`release_3.0.1` and `v3.0.1`. Keep the tag in sync with `AssemblyVersion` / `FileVersion` in
 `RomValidator.csproj`.
 
 A manual dispatch of the workflow with the tag input can be used to re-publish an existing tag.

@@ -16,7 +16,7 @@ Windows 10/11, Linux and macOS 11 or later, on x64 and ARM64. The application is
 Avalonia, so the same UI runs on all three platforms.
 
 **Do I need to install .NET?**
-No. Release bundles are self-contained and include everything they need.
+No. Each release bundle contains a single-file, self-contained executable with everything it needs.
 
 **Which bundle should I download?**
 Use the Windows `.zip` for Windows, the Linux `.tar.gz` for Linux, and the macOS `.dmg` for macOS.

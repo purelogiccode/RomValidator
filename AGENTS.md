@@ -38,8 +38,10 @@ against No-Intro DAT files and generates new DAT files from a ROM collection.
 | Linux | `linux-x64`, `linux-arm64` | `.tar.gz` |
 | macOS | `osx-x64`, `osx-arm64` | `.dmg` (contains `ROM Validator.app`) |
 
-Release bundles are self-contained and do not require the .NET runtime on the target
-machine. Build them with `dotnet publish` using the matching runtime identifier.
+Release bundles are published as single-file, self-contained executables and do not require the
+.NET runtime on the target machine. Build them with `dotnet publish` using the matching runtime
+identifier plus `-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true`. The
+Windows executable embeds the architecture-matched 7-Zip fallback.
 
 ## Prerequisites
 

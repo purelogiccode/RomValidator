@@ -97,8 +97,13 @@ jobs:
             --self-contained true `
             --output "publish/${{ matrix.rid }}" `
             -p:Version=${{ steps.version.outputs.version }} `
-            -p:PublishSingleFile=false
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true
           if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
+
+          Get-ChildItem "publish/${{ matrix.rid }}" -Filter *.pdb -File -Recurse |
+            Remove-Item -Force
+          Remove-Item "publish/${{ matrix.rid }}/RomValidator.xml" -Force -ErrorAction SilentlyContinue
 
       - name: Add license, readme and whatsnew to the bundle
         shell: pwsh

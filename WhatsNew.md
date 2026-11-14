@@ -1,3 +1,14 @@
+Release 3.0.1
+2026-11-14
+
+- All six release bundles are now built as single-file, self-contained
+  executables: Windows `.zip`, Linux `.tar.gz` and macOS `.dmg`
+- The Windows app embeds the architecture-matched 7-Zip fallback and extracts it
+  on first use, so no separate 7za.exe is shipped next to the application
+- Removed native debug symbols from release bundles
+- Fixed the validation completion summary appearing when validation never
+  started, and restored the F8 screenshot shortcut on every window
+
 Release 3.0.0
 2026-11-13
 
