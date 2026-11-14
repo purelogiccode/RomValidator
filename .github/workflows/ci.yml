@@ -96,7 +96,7 @@ jobs:
       - name: Run inspectcode
         shell: pwsh
         run: |
-          jb inspectcode CSharp_RomValidator.sln --output "$env:RUNNER_TEMP/inspectcode.sarif" --format=Sarif --severity=WARNING --verbosity=WARN
+          jb inspectcode CSharp_RomValidator.sln --output="$env:RUNNER_TEMP/inspectcode.sarif" --format=Sarif --severity=WARNING --verbosity=WARN
           if ($LASTEXITCODE -ne 0) { throw "jb inspectcode failed with exit code $LASTEXITCODE." }
 
           $results = (Get-Content "$env:RUNNER_TEMP/inspectcode.sarif" -Raw | ConvertFrom-Json).runs[0].results
