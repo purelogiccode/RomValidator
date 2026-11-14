@@ -19,6 +19,7 @@ public partial class DuplicateFilesWindow : Window
         {
             InitializeComponent();
             WindowThemeService.ApplyDarkTitleBar(this);
+            ScreenshotShortcut.Attach(this);
         }
         catch (Exception ex)
         {

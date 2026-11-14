@@ -20,9 +20,9 @@ publish its artifacts and documentation.
 | Inspection | A separate `inspectcode` job runs `jb inspectcode` on `windows-latest` and fails on any finding |
 
 The build matrix runs on all three desktop platforms, so platform-specific code is compiled and
-tested everywhere. The build also runs the Meziantou and Roslynator analyzers with warnings
-treated as errors, so a green CI run means zero compiler and analyzer warnings. The
-`inspectcode` job adds the JetBrains inspection gate: the run must report zero findings.
+tested everywhere. The build runs the Meziantou and Roslynator analyzers and is expected to stay
+warning-free, so a green CI run means zero compiler and analyzer warnings. The `inspectcode` job
+adds the JetBrains inspection gate: the run must report zero findings.
 
 Test results (`*.trx`) and coverage output are uploaded as per-platform artifacts
 (`test-results-<os>` and `code-coverage-<os>`).

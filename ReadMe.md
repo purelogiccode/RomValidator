@@ -32,6 +32,7 @@ A cross-platform desktop application for validating ROM files against DAT files 
 - **Cross-Platform**: Windows, Linux and macOS builds on x64 and ARM64, self-contained and ready to run without a separate .NET runtime
 - **Archive Support**: Read ROMs directly from `.zip`, `.7z`, and `.rar` archives (SharpCompress). The Windows bundles include `7za.exe` / `7za_arm64.exe` as a fallback; on Linux and macOS a system-installed `7zz`, `7z` or `7za` is used when available
 - **Modern Dark Theme**: Avalonia 12.1 with the Fluent theme and a custom professional dark palette
+- **Live Activity Log**: a full-height, resizable log panel on the right of the validation screen, with controls and DAT information on the left
 - **Screenshot Capture**: Press **F8** to save a screenshot of the active window to the `Screenshot` folder next to the executable, falling back to the per-user data folder when the application folder is read-only
 - **App Data Button**: the **App Data** button in the top-right corner opens the per-user data folder — logs (`Logs/`) and fallback screenshots (`Screenshot/`) live there, always writable even when the application is installed in a protected location
 - **Donate Button**: the **Donate** button in the top-right corner (next to **About**) opens the [donation page](https://www.purelogiccode.com/donate) in your default browser

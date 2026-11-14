@@ -48,6 +48,10 @@ on exit. `MainWindow` receives the services through the `App` instance so that o
 per service exists. Native file and folder pickers use the Avalonia `StorageProvider`; message
 dialogs are shown through `DialogService` and rendered by the themed `MessageDialog` window.
 
+The validation screen uses a two-column layout: validation controls and DAT metadata on the left,
+and a full-height live activity log on the right. A `GridSplitter` lets the user resize the log
+panel, while statistics and progress remain full-width below both columns.
+
 ## Service layer
 
 | Service | Responsibility |

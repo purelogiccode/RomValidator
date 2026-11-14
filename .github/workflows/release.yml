@@ -142,26 +142,26 @@ jobs:
           }
           & iconutil -c icns $iconset -o "$resources/AppIcon.icns"
 
-          $plist = @"
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleName</key><string>ROM Validator</string>
-            <key>CFBundleDisplayName</key><string>ROM Validator</string>
-            <key>CFBundleIdentifier</key><string>com.purelogiccode.romvalidator</string>
-            <key>CFBundleVersion</key><string>${{ steps.version.outputs.version }}</string>
-            <key>CFBundleShortVersionString</key><string>${{ steps.version.outputs.version }}</string>
-            <key>CFBundleExecutable</key><string>RomValidator</string>
-            <key>CFBundleIconFile</key><string>AppIcon</string>
-            <key>CFBundlePackageType</key><string>APPL</string>
-            <key>LSMinimumSystemVersion</key><string>11.0</string>
-            <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
-            <key>NSHighResolutionCapable</key><true/>
-          </dict>
-          </plist>
-          "@
-          Set-Content -Path "$contents/Info.plist" -Value $plist -Encoding utf8NoBOM
+          $plist = @(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+            '<plist version="1.0">'
+            '<dict>'
+            '  <key>CFBundleName</key><string>ROM Validator</string>'
+            '  <key>CFBundleDisplayName</key><string>ROM Validator</string>'
+            '  <key>CFBundleIdentifier</key><string>com.purelogiccode.romvalidator</string>'
+            "  <key>CFBundleVersion</key><string>${{ steps.version.outputs.version }}</string>"
+            "  <key>CFBundleShortVersionString</key><string>${{ steps.version.outputs.version }}</string>"
+            '  <key>CFBundleExecutable</key><string>RomValidator</string>'
+            '  <key>CFBundleIconFile</key><string>AppIcon</string>'
+            '  <key>CFBundlePackageType</key><string>APPL</string>'
+            '  <key>LSMinimumSystemVersion</key><string>11.0</string>'
+            '  <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>'
+            '  <key>NSHighResolutionCapable</key><true/>'
+            '</dict>'
+            '</plist>'
+          )
+          $plist | Set-Content -Path "$contents/Info.plist" -Encoding utf8NoBOM
           chmod +x "$macOs/RomValidator"
           codesign --force --deep --sign - "$app"
           if ($LASTEXITCODE -ne 0) { Write-Warning "Ad-hoc codesign failed; the app may require manual approval." }

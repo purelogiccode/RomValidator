@@ -23,6 +23,12 @@ The full release history, with commit-level detail and downloadable bundles, is 
   macOS use a system-installed `7zz`, `7z` or `7za` when one is present.
 - **Themed dialogs and native pickers**: message dialogs are rendered by the application, and file
   and folder selection uses the Avalonia storage provider.
+- **Activity log on the right**: the validation screen uses a two-column layout with a full-height,
+  resizable live log panel next to the validation controls and DAT information.
+- **Fewer false bug reports**: corrupt archive entries are surfaced as per-file user errors instead
+  of being forwarded to the bug-report API.
+- **Validation flow fixes**: the completion summary is no longer shown when validation never
+  started, and the F8 screenshot shortcut works on all application windows.
 - **Platform-aware data folders**: logs and fallback screenshots use the per-user data directory
   of each operating system.
 - **CI on three platforms**: builds and tests run on Windows, Linux and macOS, and `jb inspectcode`

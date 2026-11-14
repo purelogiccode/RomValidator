@@ -114,6 +114,7 @@ public partial class ValidatePage : UserControl, IDisposable
     private async Task StartValidationAsync()
     {
         CancellationTokenSource? operationCts = null; // Capture variable for this operation
+        var validationRan = false;
         try
         {
             var romsFolderPath = RomsFolderTextBox.Text;
@@ -212,6 +213,7 @@ public partial class ValidatePage : UserControl, IDisposable
 
             await _mainWindow.UpdateStatusBarMessageAsync("DAT file loaded. Starting ROM validation...",
                 operationCts.Token);
+            validationRan = true;
             await PerformValidationAsync(romsFolderPath, moveSuccess, moveFailed, deleteFailed, renameMatched,
                 operationCts.Token);
         }
@@ -234,7 +236,10 @@ public partial class ValidatePage : UserControl, IDisposable
             _operationTimer.Stop();
             UpdateProcessingTimeDisplay();
             SetControlsState(true);
-            await LogOperationSummaryAsync();
+            if (validationRan)
+            {
+                await LogOperationSummaryAsync();
+            }
 
             // Dispose only this operation's CTS instance
             lock (_ctsLock)

@@ -16,6 +16,13 @@ Release 3.0.0
   or 7za when present
 - Native file and folder pickers and a themed in-app message dialog replace the
   previous platform dialogs
+- The validation screen now has a full-height, resizable activity log on the
+  right, with controls and DAT information on the left
+- Corrupt archive entries are reported as per-file user errors and no longer
+  create false bug reports
+- Fixed the validation summary appearing when validation never started (for
+  example, when no folder or DAT file was selected)
+- The F8 screenshot shortcut works on every application window again
 - Logs and fallback screenshots use platform-specific per-user data folders
   (%LOCALAPPDATA% on Windows, ~/Library/Application Support on macOS, the XDG
   data directory on Linux)

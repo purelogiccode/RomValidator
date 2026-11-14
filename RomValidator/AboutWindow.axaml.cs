@@ -22,6 +22,7 @@ public partial class AboutWindow : Window
         {
             InitializeComponent();
             WindowThemeService.ApplyDarkTitleBar(this);
+            ScreenshotShortcut.Attach(this);
             AppVersionTextBlock.Text = $"Version: {GetApplicationVersion()}";
         }
         catch (Exception ex)

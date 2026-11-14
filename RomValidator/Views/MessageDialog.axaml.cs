@@ -105,6 +105,7 @@ public partial class MessageDialog : Window
     {
         InitializeComponent();
         WindowThemeService.ApplyDarkTitleBar(this);
+        ScreenshotShortcut.Attach(this);
 
         TitleText.Text = title;
         MessageText.Text = message;

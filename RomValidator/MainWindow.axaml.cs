@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using RomValidator.Interfaces;
@@ -42,7 +41,13 @@ public partial class MainWindow : Window, IDisposable
             UpdateActivePageIndicator(_validatePage);
             UpdateStatusBarMessage("Ready.");
 
-            AddHandler(KeyDownEvent, OnGlobalPreviewKeyDown, RoutingStrategies.Tunnel);
+            ScreenshotShortcut.Attach(this, filePath =>
+            {
+                if (filePath != null)
+                {
+                    _ = UpdateStatusBarMessageAsync($"Screenshot saved: {filePath}");
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -205,29 +210,6 @@ public partial class MainWindow : Window, IDisposable
         catch (Exception ex)
         {
             LoggerService.LogException("MainWindow", ex, "Error during window closing");
-        }
-    }
-
-    private void OnGlobalPreviewKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.F8)
-        {
-            return;
-        }
-
-        e.Handled = true;
-
-        try
-        {
-            var filePath = ScreenshotService.CaptureActiveWindowScreenshot();
-            if (filePath != null)
-            {
-                _ = UpdateStatusBarMessageAsync($"Screenshot saved: {filePath}");
-            }
-        }
-        catch (Exception ex)
-        {
-            LoggerService.LogException("Screenshot", ex, "Error capturing screenshot");
         }
     }
 
